@@ -1,0 +1,81 @@
+{
+  "_comment": "Copy this file to master_cv.json and fill with your real data. master_cv.json is in .gitignore.",
+  "name": "Your Full Name",
+  "title": "Senior AI Infrastructure Engineer | MLOps & Agentic Systems",
+  "email": "your@email.com",
+  "phone": "+1 000 000 0000",
+  "location": "Your City, Country (Remote Global)",
+  "linkedin": "https://linkedin.com/in/your-profile",
+  "github": "https://github.com/your-username",
+  "salary_expectation_usd_month": 7500,
+  "summary": "One paragraph professional summary using market-aligned keywords.",
+  "skills": {
+    "ai_ml_infrastructure": [
+      "Amazon SageMaker", "AWS Bedrock", "LLMOps", "RAG pipelines",
+      "multi-agent orchestration", "HITL systems", "vector databases",
+      "LangChain", "MCP (Model Context Protocol)"
+    ],
+    "cloud_platform_engineering": [
+      "AWS (EKS, Lambda, EventBridge, VPC PrivateLink, IAM, S3, CloudFormation, SNS)",
+      "Kubernetes", "Docker", "ECS Fargate"
+    ],
+    "iac": ["Terraform", "CloudFormation", "Ansible"],
+    "automation_cicd": ["Python", "GitHub Actions", "Jenkins", "Bash"],
+    "observability": ["Prometheus", "Grafana", "ELK Stack", "CloudWatch"]
+  },
+  "experience": [
+    {
+      "company": "Company Name",
+      "role": "Senior DevOps Consultant",
+      "start": "2022-01",
+      "end": "2025-10",
+      "bullets": [
+        "Architected CI/CD platform supporting 50+ daily deployments across 3 environments.",
+        "Led Kubernetes EKS infrastructure for SaaS platform, maintaining 99.9% uptime."
+      ]
+    },
+    {
+      "company": "Independent Consultant",
+      "role": "AI Infrastructure Architect",
+      "start": "2025-11",
+      "end": "present",
+      "bullets": [
+        "Built end-to-end autonomous incident management system on AWS using Bedrock, ECS Fargate, RAG with Titan Embeddings, and HITL via API Gateway.",
+        "Developed modular SageMaker ML pipeline (ingest → train → serverless endpoint) — 4 production modules.",
+        "Published open-source Terraform module library (tf-modules-forge) with enterprise patterns."
+      ]
+    }
+  ],
+  "projects": [
+    {
+      "name": "SAO Platform",
+      "market_name": "Autonomous AI Incident Response Platform",
+      "github": "https://github.com/your-username/aws-sovereign-ops",
+      "description": "End-to-end autonomous incident management: CloudWatch → EventBridge → Lambda → ECS Fargate → Bedrock → HITL email approval → boto3 execution.",
+      "tech": ["AWS Bedrock", "ECS Fargate", "RAG", "Titan Embeddings", "Lambda", "API Gateway"],
+      "impact": "Reduced mean time to resolution for infrastructure incidents via AI-driven runbook automation."
+    },
+    {
+      "name": "Sovereign ML Forge",
+      "market_name": "Modular MLOps Pipeline on AWS",
+      "github": "https://github.com/your-username/sovereign-ml-forge",
+      "description": "4-module SageMaker pipeline: data ingestion, model training, serverless endpoint, monitoring — all IaC with CloudFormation.",
+      "tech": ["Amazon SageMaker", "CloudFormation", "Python", "S3"],
+      "impact": "Production-grade MLOps pipeline deployable in under 30 minutes."
+    }
+  ],
+  "education": [
+    {
+      "degree": "Bachelor's Degree in Systems Engineering",
+      "institution": "Your University",
+      "year": "2026"
+    }
+  ],
+  "certifications": [
+    "AWS Certified Cloud Practitioner (2025)"
+  ],
+  "languages": {
+    "spanish": "Native",
+    "english": "B2/C1 Technical Proficiency"
+  }
+}
