@@ -1,3 +1,4 @@
+import json
 from datetime import datetime, timezone
 
 from loguru import logger
@@ -42,13 +43,14 @@ class OutreachBot(BaseScraper):
                 logger.info("Daily limit reached mid-run. Stopping.")
                 break
             try:
+                matched, growth = self._load_job_context(manager.job_id)
                 pitch = generate_pitch(
                     company_name=manager.company,
                     job_title=manager.role or "Engineering role",
                     manager_name=manager.name,
                     manager_title=manager.role or "",
-                    matched_skills=[],   # populated by pipeline orchestrator
-                    growth_signals=[],
+                    matched_skills=matched,
+                    growth_signals=growth,
                 )
                 await self._send_linkedin_message(page, manager, pitch)
                 self._mark_sent(manager, pitch)
@@ -113,6 +115,18 @@ class OutreachBot(BaseScraper):
                 )
                 .count()
             )
+
+    def _load_job_context(self, job_id: int | None) -> tuple[list[str], list[str]]:
+        if not job_id:
+            return [], []
+        with get_session() as session:
+            from src.database.models import Job
+            job = session.get(Job, job_id)
+            if not job:
+                return [], []
+            matched = json.loads(job.matched_skills or "[]")
+            growth = json.loads(job.growth_signals or "[]")
+            return matched, growth
 
     def _mark_sent(self, manager: HiringManager, pitch: str) -> None:
         with get_session() as session:

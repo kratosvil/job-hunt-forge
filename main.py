@@ -54,6 +54,8 @@ def scrape(
                             fit_score=analysis.get("fit_score"),
                             matched_skills=json.dumps(analysis.get("matched_skills", [])),
                             missing_skills=json.dumps(analysis.get("missing_skills", [])),
+                            growth_signals=json.dumps(analysis.get("company_growth_signals", [])),
+                            hiring_manager_signals=json.dumps(analysis.get("hiring_manager_signals", [])),
                             salary_range=analysis.get("salary_range_visible"),
                             remote_friendly=analysis.get("remote_friendly"),
                             source=raw["source"],
@@ -98,6 +100,21 @@ def analyze() -> None:
 def apply() -> None:
     """Auto-fill and queue job applications (Phase 2)."""
     console.print("[yellow]Auto-apply — Phase 2 feature. Run outreach first.[/yellow]")
+
+
+@app.command()
+def pipeline(
+    skip_scrape: bool = typer.Option(False, "--skip-scrape", help="Skip scraping stage."),
+    skip_outreach: bool = typer.Option(False, "--skip-outreach", help="Skip outreach stage."),
+    source: str = typer.Option("linkedin", help="linkedin | indeed | all"),
+) -> None:
+    """Run the full pipeline: scrape → find managers → outreach → report."""
+    from src.pipeline import run as run_pipeline
+    asyncio.run(run_pipeline(
+        skip_scrape=skip_scrape,
+        skip_outreach=skip_outreach,
+        source=source,
+    ))
 
 
 @app.command()

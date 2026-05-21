@@ -1,0 +1,12 @@
+services:
+  jhf:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    volumes:
+      - ./data:/app/data          # persists jobs.db, master_cv.json, session_state.json
+      - ./logs:/app/logs
+      - ./.env:/app/.env:ro
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: python main.py pipeline
