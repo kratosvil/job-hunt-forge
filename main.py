@@ -107,6 +107,7 @@ def pipeline(
     skip_scrape: bool = typer.Option(False, "--skip-scrape", help="Skip scraping stage."),
     skip_outreach: bool = typer.Option(False, "--skip-outreach", help="Skip outreach stage."),
     source: str = typer.Option("linkedin", help="linkedin | indeed | all"),
+    limit: int = typer.Option(0, "--limit", help="Max new jobs to analyze (0=unlimited). Use for test runs."),
 ) -> None:
     """Run the full pipeline: scrape → find managers → outreach → report."""
     from src.pipeline import run as run_pipeline
@@ -114,6 +115,7 @@ def pipeline(
         skip_scrape=skip_scrape,
         skip_outreach=skip_outreach,
         source=source,
+        limit=limit,
     ))
 
 

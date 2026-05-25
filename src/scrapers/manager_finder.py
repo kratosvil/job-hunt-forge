@@ -111,12 +111,17 @@ class ManagerFinder(BaseScraper):
     ) -> list[_ManagerCandidate]:
         url = _LI_PEOPLE_SEARCH.format(query=query.replace(" ", "%20"))
         try:
-            await page.goto(url, wait_until="networkidle", timeout=15000)
+            await page.goto(url, wait_until="domcontentloaded", timeout=30000)
+            try:
+                await page.wait_for_load_state("networkidle", timeout=10000)
+            except Exception:
+                pass
         except Exception as exc:
             logger.warning(f"Navigation failed for query '{query}': {exc}")
             return []
 
-        results = await page.query_selector_all(".entity-result__item")
+        # LinkedIn authenticated search uses ARIA roles — stable across redesigns
+        results = await page.query_selector_all('div[role="listitem"]')
         candidates = []
 
         for result in results[:limit]:
@@ -130,22 +135,35 @@ class ManagerFinder(BaseScraper):
         return candidates
 
     async def _extract_result(self, result) -> _ManagerCandidate | None:
-        name_el = await result.query_selector(".entity-result__title-text a span[aria-hidden='true']")
-        role_el = await result.query_selector(".entity-result__primary-subtitle")
-        link_el = await result.query_selector(".entity-result__title-text a")
+        try:
+            # Profile link — stable: always /in/<slug>/
+            link_el = await result.query_selector('a[href*="/in/"]')
+            if not link_el:
+                return None
 
-        if not name_el or not link_el:
+            href = await link_el.get_attribute("href") or ""
+            linkedin_url = href.split("?")[0]
+            if not linkedin_url:
+                return None
+
+            # Name and role from inner text — skip degree indicators (• 1st, • 2nd, • 3rd+)
+            full_text = (await result.inner_text()).strip()
+            lines = [
+                ln.strip() for ln in full_text.splitlines()
+                if ln.strip() and not ln.strip().startswith("•")
+            ]
+            # lines[0]=name, lines[1]=role title
+            name = lines[0] if lines else ""
+            role = lines[1] if len(lines) > 1 else ""
+
+            if not name or not linkedin_url:
+                return None
+
+            return _ManagerCandidate(name=name, role=role, linkedin_url=linkedin_url)
+
+        except Exception as exc:
+            logger.debug(f"Element extraction error (DOM refresh?): {exc}")
             return None
-
-        name = (await name_el.inner_text()).strip()
-        role = (await role_el.inner_text()).strip() if role_el else ""
-        href = await link_el.get_attribute("href") or ""
-        linkedin_url = href.split("?")[0]  # strip tracking params
-
-        if not name or not linkedin_url:
-            return None
-
-        return _ManagerCandidate(name=name, role=role, linkedin_url=linkedin_url)
 
     def _save_candidates(self, candidates: list[_ManagerCandidate], job: Job) -> int:
         inserted = 0

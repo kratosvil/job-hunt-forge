@@ -25,11 +25,20 @@ class BaseScraper(ABC):
         self._playwright = await async_playwright().start()
         browser = await self._playwright.chromium.launch(headless=True)
         state_path = settings.playwright_state_path
+        ctx_kwargs = dict(
+            viewport={"width": 1280, "height": 900},
+            user_agent=(
+                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+                "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            ),
+        )
         if state_path.exists():
-            self._context = await browser.new_context(storage_state=str(state_path))
+            self._context = await browser.new_context(
+                storage_state=str(state_path), **ctx_kwargs
+            )
             logger.info("Browser session loaded from state file.")
         else:
-            self._context = await browser.new_context()
+            self._context = await browser.new_context(**ctx_kwargs)
             logger.warning(
                 f"No session state found at {state_path}. "
                 "Run `make capture-session` to authenticate first."

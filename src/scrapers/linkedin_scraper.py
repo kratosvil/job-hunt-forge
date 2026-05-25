@@ -33,15 +33,32 @@ class LinkedInScraper(BaseScraper):
                     location=location.replace(" ", "%20"),
                 )
                 logger.info(f"Scraping LinkedIn: {role} in {location}")
-                await page.goto(url, wait_until="networkidle")
+                await page.goto(url, wait_until="domcontentloaded", timeout=60000)
                 await self._human_delay()
 
-                job_cards = await page.query_selector_all(".job-card-container")
+                # Guest frontend uses div.job-search-card; authenticated uses .job-card-container
+                job_cards = await page.query_selector_all("div.job-search-card, .job-card-container")
                 logger.info(f"Found {len(job_cards)} cards")
 
+                # Extract URLs first before the DOM refreshes on hover/click
+                card_urls = []
                 for card in job_cards:
                     try:
-                        yield await self._extract_card(page, card)
+                        link_el = await card.query_selector(
+                            "a.base-card__full-link, a.job-card-container__link"
+                        )
+                        href = await link_el.get_attribute("href") if link_el else ""
+                        if href and not href.startswith("http"):
+                            href = f"https://www.linkedin.com{href}"
+                        card_urls.append(href.split("?")[0] if href else "")
+                    except Exception:
+                        card_urls.append("")
+
+                for card_url in card_urls:
+                    if not card_url:
+                        continue
+                    try:
+                        yield await self._extract_from_url(page, card_url)
                         await self._human_delay()
                     except Exception as exc:
                         logger.warning(f"Card extraction failed: {exc}")
@@ -49,33 +66,48 @@ class LinkedInScraper(BaseScraper):
 
         await page.close()
 
-    async def _extract_card(self, page, card) -> dict:
-        link_el = await card.query_selector("a.job-card-container__link")
-        title_el = await card.query_selector(".job-card-list__title")
-        company_el = await card.query_selector(".job-card-container__primary-description")
-        location_el = await card.query_selector(".job-card-container__metadata-item")
-
-        url = await link_el.get_attribute("href") if link_el else ""
-        if url and not url.startswith("http"):
-            url = f"https://www.linkedin.com{url}"
-
-        await card.click()
-        await self._human_delay()
-
-        jd_text = ""
+    async def _extract_from_url(self, page, url: str) -> dict:
+        await page.goto(url, wait_until="domcontentloaded", timeout=60000)
         try:
-            jd_el = await page.wait_for_selector(
-                ".jobs-description__content", timeout=5000
-            )
-            jd_text = await jd_el.inner_text() if jd_el else ""
+            await page.wait_for_load_state("networkidle", timeout=12000)
         except Exception:
             pass
+        await self._human_delay()
+
+        body_text = await page.inner_text("body")
+
+        # Title + company + location from page title:
+        # Format: "Company hiring Job Title in Location | LinkedIn"
+        page_title = await page.title()
+        title = company = location = ""
+        if " hiring " in page_title:
+            company = page_title.split(" hiring ")[0].strip()
+            rest = page_title.split(" hiring ")[1].split(" | ")[0].strip()
+            if " in " in rest:
+                title = rest.rsplit(" in ", 1)[0].strip()
+                location = rest.rsplit(" in ", 1)[1].strip()
+            else:
+                title = rest
+        elif " | " in page_title:
+            title = page_title.split(" | ")[0].strip()
+            company = page_title.split(" | ")[1].strip()
+
+        # JD text: everything after "Tailor my resume" (last UI button before content)
+        jd_text = ""
+        markers = ["Tailor my resume", "About the job", "Job description"]
+        for marker in markers:
+            if marker in body_text:
+                jd_text = body_text.split(marker, 1)[1].strip()
+                break
+        if not jd_text:
+            # Fallback: skip first 500 chars (navigation) and take the rest
+            jd_text = body_text[500:].strip()
 
         return {
-            "url": url.split("?")[0] if url else "",
-            "title": await title_el.inner_text() if title_el else "",
-            "company": await company_el.inner_text() if company_el else "",
-            "location": await location_el.inner_text() if location_el else "",
+            "url": url,
+            "title": title,
+            "company": company,
+            "location": location,
             "jd_text": jd_text,
             "source": "linkedin",
         }

@@ -46,6 +46,7 @@ async def run(
     skip_scrape: bool = False,
     skip_outreach: bool = False,
     source: str = "linkedin",
+    limit: int = 0,
 ) -> PipelineResult:
     """
     Execute the full pipeline.
@@ -62,7 +63,7 @@ async def run(
     if not skip_scrape:
         console.print("\n[bold cyan]Stage 1/4 — Scraping job listings...[/bold cyan]")
         result.jobs_scraped, result.jobs_qualified, result.jobs_skipped = (
-            await _run_scrape(source)
+            await _run_scrape(source, limit=limit)
         )
         console.print(
             f"  Scraped: [green]{result.jobs_scraped}[/green] | "
@@ -104,9 +105,8 @@ async def run(
     return result
 
 
-async def _run_scrape(source: str) -> tuple[int, int, int]:
+async def _run_scrape(source: str, limit: int = 0) -> tuple[int, int, int]:
     import json
-    from sqlalchemy.exc import IntegrityError
     from src.intelligence.jd_analyzer import analyze
     from src.database.models import JobStatus
 
@@ -121,15 +121,29 @@ async def _run_scrape(source: str) -> tuple[int, int, int]:
     for scraper_cls in scrapers:
         async with scraper_cls as s:
             async for raw in s.scrape():
+                if limit and total >= limit:
+                    logger.info(f"Limit of {limit} jobs reached — stopping scrape.")
+                    return total, qualified, skipped
+
                 if not raw.get("url") or not raw.get("jd_text"):
                     continue
+
+                url = raw["url"]
+
+                # Skip Bedrock call if URL already in DB — saves money on repeated runs
+                with get_session() as session:
+                    existing = session.query(Job).filter(Job.url == url).first()
+                    if existing:
+                        logger.debug(f"Already in DB, skipping: {url}")
+                        continue
+
                 try:
                     analysis = analyze(raw["jd_text"])
                     recommended = analysis.get("application_recommended", False)
                     fit = analysis.get("fit_score", 0.0)
 
                     job = Job(
-                        url=raw["url"],
+                        url=url,
                         title=raw["title"].strip(),
                         company=raw["company"].strip(),
                         location=raw.get("location", ""),
@@ -153,10 +167,8 @@ async def _run_scrape(source: str) -> tuple[int, int, int]:
                     else:
                         skipped += 1
 
-                except IntegrityError:
-                    logger.debug(f"Duplicate: {raw.get('url', '')}")
                 except Exception as exc:
-                    logger.error(f"Scrape error: {exc}")
+                    logger.error(f"Scrape error for {url}: {exc}")
 
     return total, qualified, skipped
 
