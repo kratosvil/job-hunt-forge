@@ -29,6 +29,10 @@ scrape:
 find-managers:
 	$(PYTHON) main.py pipeline --skip-scrape --skip-outreach
 
+# Safe test run — only 3 jobs, no scrape, no outreach
+find-managers-test:
+	$(PYTHON) main.py pipeline --skip-scrape --skip-outreach --managers-limit 3
+
 outreach:
 	$(PYTHON) main.py outreach
 

@@ -47,6 +47,7 @@ async def run(
     skip_outreach: bool = False,
     source: str = "linkedin",
     limit: int = 0,
+    managers_limit: int = 0,
 ) -> PipelineResult:
     """
     Execute the full pipeline.
@@ -77,7 +78,7 @@ async def run(
     console.print("\n[bold cyan]Stage 2/4 — Discovering hiring managers...[/bold cyan]")
     try:
         async with ManagerFinder() as finder:
-            result.managers_found = await finder.find_for_qualified_jobs()
+            result.managers_found = await finder.find_for_qualified_jobs(limit=managers_limit)
         console.print(f"  Managers queued: [green]{result.managers_found}[/green]")
     except Exception as exc:
         msg = f"Manager finder failed: {exc}"

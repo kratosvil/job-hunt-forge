@@ -49,8 +49,8 @@ class ManagerFinder(BaseScraper):
     async def scrape(self):
         raise NotImplementedError("Use find_for_qualified_jobs() directly.")
 
-    async def find_for_qualified_jobs(self) -> int:
-        jobs = self._get_unsearched_jobs()
+    async def find_for_qualified_jobs(self, limit: int = 0) -> int:
+        jobs = self._get_unsearched_jobs(limit=limit)
         if not jobs:
             logger.info("No qualified jobs pending manager search.")
             return 0
@@ -190,16 +190,18 @@ class ManagerFinder(BaseScraper):
                 inserted += 1
         return inserted
 
-    def _get_unsearched_jobs(self) -> list[Job]:
+    def _get_unsearched_jobs(self, limit: int = 0) -> list[Job]:
         with get_session() as session:
-            return (
+            q = (
                 session.query(Job)
                 .filter(
                     Job.status == JobStatus.ANALYZED,
                     Job.managers_searched.is_(False),
                 )
-                .all()
             )
+            if limit > 0:
+                q = q.limit(limit)
+            return q.all()
 
     def _mark_searched(self, job: Job) -> None:
         with get_session() as session:

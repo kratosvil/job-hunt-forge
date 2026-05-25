@@ -19,11 +19,18 @@ STATE_PATH = Path(__file__).resolve().parent.parent / "data" / "session_state.js
 async def main() -> None:
     STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=False)
+        # Use real Chrome so Google/LinkedIn don't block the login.
+        # Falls back to Playwright's Chromium if Chrome is not installed.
+        try:
+            browser = await p.chromium.launch(headless=False, channel="chrome")
+        except Exception:
+            browser = await p.chromium.launch(headless=False)
+
         context = await browser.new_context()
         page = await context.new_page()
         await page.goto("https://www.linkedin.com/login")
         print("\n>>> Log in to LinkedIn in the browser window that just opened.")
+        print(">>> Use your LinkedIn email + password (NOT 'Continue with Google').")
         print(">>> When you see your feed, press ENTER here to save the session.\n")
         input()
         await context.storage_state(path=str(STATE_PATH))
