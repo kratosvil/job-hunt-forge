@@ -57,7 +57,7 @@ CONNECTION_NOTE_TECHNICAL_PROMPT = """
 Write a LinkedIn connection request note from {candidate_name} to {manager_first_name}.
 
 HARD RULES:
-- Maximum 200 characters total. Count every character carefully.
+- Maximum 198 characters total. Count every character carefully.
 - Start with their first name, a space, em dash, a space (example: "Keith — ").
 - Reference the specific job role and company in a natural way.
 - Mention ONE concrete technical project or achievement — vary the angle, do not always use the same metric.
@@ -82,7 +82,7 @@ CONNECTION_NOTE_RECRUITER_PROMPT = """
 Write a LinkedIn connection request note from {candidate_name} to {manager_first_name}, who works in talent acquisition or recruiting.
 
 HARD RULES:
-- Maximum 200 characters total. Count every character carefully.
+- Maximum 198 characters total. Count every character carefully.
 - Start with their first name, a space, em dash, a space (example: "Janet — ").
 - Mention you saw the role at the company and that you're actively looking.
 - State your core identity in one phrase (Senior MLOps / AI Infrastructure Engineer).

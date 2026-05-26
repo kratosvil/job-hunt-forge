@@ -110,8 +110,8 @@ def generate_connection_note(
 
     note = llm.complete(prompt, json_mode=False).strip()
 
-    # LinkedIn reduced the connection note limit to 200 chars (was 300).
-    MAX_NOTE = 200
+    # LinkedIn limit is 200 chars; use 198 to avoid off-by-one with trailing punctuation.
+    MAX_NOTE = 198
     if note_type == "technical":
         # Closing is appended in code — reliable regardless of LLM output
         closing = " Thought it was worth connecting directly."
