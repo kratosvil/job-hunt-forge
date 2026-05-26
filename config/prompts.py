@@ -53,6 +53,30 @@ RULES:
 Return ONLY the message text, no subject line, no JSON.
 """
 
+CONNECTION_NOTE_PROMPT = """
+Write a LinkedIn connection request note from {candidate_name} to {manager_first_name}.
+
+HARD RULES:
+- Maximum 280 characters total. Count carefully.
+- Start with their first name, a space, then an em dash, then a space (e.g. "Keith — ").
+- Reference the specific job role and company.
+- Mention ONE concrete technical achievement that directly maps to their context.
+- End with: "Thought it was worth connecting directly."
+- No URLs, no phone numbers, no emojis, no subject line.
+- English only. Peer-to-peer tone, not applicant tone.
+
+JOB CONTEXT:
+- Role: {job_title}
+- Company: {company_name}
+- Key signals: {growth_signals}
+- Matched skills: {matched_skills}
+
+CANDIDATE KEY HIGHLIGHTS:
+{cv_summary}
+
+Return ONLY the note text. Nothing else.
+"""
+
 FORM_FIELD_MAPPING_PROMPT = """
 You are filling out a job application form on behalf of {candidate_name}.
 Map each form field to the correct value from the candidate's profile.

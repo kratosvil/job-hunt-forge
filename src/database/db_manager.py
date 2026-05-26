@@ -21,7 +21,21 @@ _SessionFactory = sessionmaker(bind=_engine, expire_on_commit=False)
 
 def init_db() -> None:
     Base.metadata.create_all(_engine)
+    _migrate_db()
     logger.info(f"Database ready at {settings.db_path}")
+
+
+def _migrate_db() -> None:
+    from sqlalchemy import text
+    with _engine.connect() as conn:
+        for stmt in [
+            "ALTER TABLE hiring_managers ADD COLUMN connection_note TEXT",
+        ]:
+            try:
+                conn.execute(text(stmt))
+                conn.commit()
+            except Exception:
+                pass  # column already exists
 
 
 @contextmanager

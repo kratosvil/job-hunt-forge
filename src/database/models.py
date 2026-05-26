@@ -22,10 +22,13 @@ class JobStatus(str, Enum):
 
 class ManagerStatus(str, Enum):
     PENDING = "pending"
+    CONNECTION_REQUESTED = "connection_requested"
+    CONNECTED = "connected"
     MESSAGE_QUEUED = "message_queued"
     MESSAGE_SENT = "message_sent"
     REPLIED = "replied"
     NOT_FOUND = "not_found"
+    SKIPPED = "skipped"
 
 
 class Job(Base):
@@ -79,3 +82,4 @@ class HiringManager(Base):
         nullable=False,
     )
     contacted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    connection_note: Mapped[Optional[str]] = mapped_column(Text)
