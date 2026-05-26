@@ -1,3 +1,4 @@
+import asyncio
 import json
 from datetime import datetime, timezone, timedelta
 
@@ -90,7 +91,7 @@ class OutreachBot(BaseScraper):
     _HEADLESS = False
 
     # Only contact managers for jobs posted/scraped within this window
-    RECENCY_HOURS = 72
+    RECENCY_HOURS = 48
 
     async def scrape(self):
         raise NotImplementedError("OutreachBot does not scrape — use run() directly.")
@@ -195,6 +196,18 @@ class OutreachBot(BaseScraper):
                 f"Session expired mid-run (redirected to {page.url}). "
                 "Run `make capture-session` and retry."
             )
+
+        # Dismiss any overlay/modal that might intercept clicks (Premium banner, etc.).
+        # Escape closes most LinkedIn modals and dismisses sticky promos.
+        await page.keyboard.press("Escape")
+        await asyncio.sleep(0.4)
+        # If a Premium promo banner is present, scroll it out of the click path.
+        try:
+            promo = await page.query_selector("div._607fba13, [data-test-premium-custom-promo]")
+            if promo and await promo.is_visible():
+                await page.evaluate("el => el.remove()", promo)
+        except Exception:
+            pass
 
         # Already-connected check — "Message" button in header means 1st-degree.
         # Pending-invite check — "Pending" means request already sent (e.g. sidebar bug).
@@ -371,11 +384,13 @@ class OutreachBot(BaseScraper):
 
         LinkedIn's sidebar 'People you may know' renders 'Invite X to connect'
         buttons — excluded by position. 700px covers tall profile headers.
+        Text-based fallback covers aria-label variations across LinkedIn UI versions.
         """
         for sel in [
             'button[aria-label="Connect"]',
             'button[aria-label*="Invite"][aria-label*="connect"]',
             'button[aria-label*="to connect"]',
+            'button:has-text("Connect")',   # fallback for aria-label variations
         ]:
             candidates = await page.query_selector_all(sel)
             for btn in candidates:

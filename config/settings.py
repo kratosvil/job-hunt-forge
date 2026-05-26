@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     browser_profile_path: Path = BASE_DIR / "data" / "browser_profile"
 
     # ── Scraping safety limits ────────────────────────────────
-    max_daily_connections: int = 15
+    max_daily_connections: int = 20
     max_daily_messages: int = 20
     scrape_delay_min: int = 3
     scrape_delay_max: int = 8
