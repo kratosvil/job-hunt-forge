@@ -198,6 +198,7 @@ class ManagerFinder(BaseScraper):
                     Job.status == JobStatus.ANALYZED,
                     Job.managers_searched.is_(False),
                 )
+                .order_by(Job.scraped_at.desc())  # newest jobs first
             )
             if limit > 0:
                 q = q.limit(limit)

@@ -4,6 +4,7 @@
 data/master_cv.json
 data/jobs.db
 data/session_state.json
+data/browser_profile/
 data/cookies/
 .env
 
