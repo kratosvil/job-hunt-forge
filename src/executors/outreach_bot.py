@@ -155,8 +155,17 @@ class OutreachBot(BaseScraper):
                     f"{manager.name} @ {manager.company}"
                 )
                 await self._human_delay()
+            except RuntimeError as exc:
+                # Permanent failures — mark SKIPPED so this manager is never retried.
+                # Covers: already connected, profile restricted, Connect button absent.
+                logger.warning(
+                    f"Skipping permanently {manager.name} @ {manager.company}: {exc}"
+                )
+                self._mark_skipped(manager)
+                continue
             except Exception as exc:
-                logger.error(f"Failed for {manager.name} @ {manager.company}: {exc}")
+                # Transient failures (timeout, network) — keep PENDING for next run.
+                logger.error(f"Transient failure for {manager.name} @ {manager.company}: {exc}")
                 continue
 
         await page.close()
@@ -187,7 +196,22 @@ class OutreachBot(BaseScraper):
                 "Run `make capture-session` and retry."
             )
 
-        # Connect button — must be in the profile header (y < 500px), not sidebar.
+        # Already-connected check — "Message" button in header means 1st-degree.
+        # Pending-invite check — "Pending" means request already sent (e.g. sidebar bug).
+        for already_sel, reason in [
+            ('button[aria-label="Message"]', "already connected"),
+            ('button[aria-label*="Pending"]', "connection request already pending"),
+            ('button[aria-label*="pending"]', "connection request already pending"),
+        ]:
+            btn = await page.query_selector(already_sel)
+            if btn and await btn.is_visible():
+                box = await btn.bounding_box()
+                if box and box["y"] < 700:
+                    raise RuntimeError(
+                        f"Profile not actionable — {reason}."
+                    )
+
+        # Connect button — must be in the profile header (y < 700px), not sidebar.
         # LinkedIn sidebar "People you may know" also has "Invite X to connect"
         # buttons that would trigger a wrong modal.
         connect_btn = await self._find_profile_connect_btn(page)

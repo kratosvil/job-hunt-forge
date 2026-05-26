@@ -110,10 +110,12 @@ def generate_connection_note(
 
     note = llm.complete(prompt, json_mode=False).strip()
 
+    # LinkedIn reduced the connection note limit to 200 chars (was 300).
+    MAX_NOTE = 200
     if note_type == "technical":
         # Closing is appended in code — reliable regardless of LLM output
         closing = " Thought it was worth connecting directly."
-        body_limit = 270 - len(closing)
+        body_limit = MAX_NOTE - len(closing)
         body = _truncate_at_sentence(note, body_limit)
         # Strip any LLM-generated closing attempt to avoid duplication
         for phrase in ("Thought it was worth", "thought it was worth"):
@@ -122,7 +124,7 @@ def generate_connection_note(
                 body = body[:idx].strip().rstrip(".")
         note = body + closing
     else:
-        note = _truncate_at_sentence(note, 270)
+        note = _truncate_at_sentence(note, MAX_NOTE)
 
     logger.info(
         f"Connection note ({note_type}) for {manager_name} @ {company_name} "
