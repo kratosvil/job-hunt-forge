@@ -53,17 +53,18 @@ RULES:
 Return ONLY the message text, no subject line, no JSON.
 """
 
-CONNECTION_NOTE_PROMPT = """
+CONNECTION_NOTE_TECHNICAL_PROMPT = """
 Write a LinkedIn connection request note from {candidate_name} to {manager_first_name}.
 
 HARD RULES:
-- Maximum 280 characters total. Count carefully.
-- Start with their first name, a space, then an em dash, then a space (e.g. "Keith — ").
-- Reference the specific job role and company.
-- Mention ONE concrete technical achievement that directly maps to their context.
-- End with: "Thought it was worth connecting directly."
+- Maximum 270 characters total. Count every character carefully.
+- Start with their first name, a space, em dash, a space (example: "Keith — ").
+- Reference the specific job role and company in a natural way.
+- Mention ONE concrete technical project or achievement — vary the angle, do not always use the same metric.
+- End exactly with: "Thought it was worth connecting directly."
 - No URLs, no phone numbers, no emojis, no subject line.
-- English only. Peer-to-peer tone, not applicant tone.
+- Do NOT invent company statistics or facts not given in the context.
+- English only. Peer-to-peer engineer tone, not applicant tone.
 
 JOB CONTEXT:
 - Role: {job_title}
@@ -73,6 +74,29 @@ JOB CONTEXT:
 
 CANDIDATE KEY HIGHLIGHTS:
 {cv_summary}
+
+Return ONLY the note text. Nothing else.
+"""
+
+CONNECTION_NOTE_RECRUITER_PROMPT = """
+Write a LinkedIn connection request note from {candidate_name} to {manager_first_name}, who works in talent acquisition or recruiting.
+
+HARD RULES:
+- Maximum 270 characters total. Count every character carefully.
+- Start with their first name, a space, em dash, a space (example: "Janet — ").
+- Mention you saw the role at the company and that you're actively looking.
+- State your core identity in one phrase (Senior MLOps / AI Infrastructure Engineer).
+- End with a soft, low-friction close — not "do you have 15 minutes".
+- No URLs, no phone numbers, no emojis.
+- Do NOT invent facts.
+- English only. Direct but warm tone.
+
+JOB CONTEXT:
+- Role: {job_title}
+- Company: {company_name}
+- Matched skills: {matched_skills}
+
+CANDIDATE NAME: {candidate_name}
 
 Return ONLY the note text. Nothing else.
 """
