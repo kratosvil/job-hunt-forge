@@ -22,6 +22,7 @@ def startup(ctx: typer.Context) -> None:
 @app.command()
 def scrape(
     source: str = typer.Option("linkedin", help="linkedin | indeed | all"),
+    limit: int = typer.Option(20, "--limit", help="Max new jobs to analyze per run (0=unlimited)."),
 ) -> None:
     """Scrape job listings and store them in the database."""
     from src.scrapers.linkedin_scraper import LinkedInScraper
@@ -38,9 +39,14 @@ def scrape(
         if source in ("indeed", "all"):
             scrapers.append(IndeedScraper())
 
+        analyzed = 0
+
         for scraper in scrapers:
             async with scraper as s:
                 async for raw in s.scrape():
+                    if limit and analyzed >= limit:
+                        logger.info(f"Limit of {limit} jobs reached — stopping scrape.")
+                        return
                     if not raw.get("url") or not raw.get("jd_text"):
                         continue
                     try:
@@ -65,8 +71,9 @@ def scrape(
                         )
                         with get_session() as session:
                             session.add(job)
+                        analyzed += 1
                         logger.info(
-                            f"Saved: {job.title} @ {job.company} "
+                            f"[{analyzed}/{limit or '∞'}] Saved: {job.title} @ {job.company} "
                             f"(fit={job.fit_score:.2f}, recommended={analysis.get('application_recommended')})"
                         )
                     except IntegrityError:

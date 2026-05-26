@@ -23,8 +23,9 @@ pipeline:
 	$(PYTHON) main.py pipeline
 
 # Run only specific stages
+# Max 20 nuevos jobs por día — evita gasto excesivo en Bedrock
 scrape:
-	$(PYTHON) main.py scrape
+	$(PYTHON) main.py scrape --limit 20
 
 find-managers:
 	$(PYTHON) main.py pipeline --skip-scrape --skip-outreach
