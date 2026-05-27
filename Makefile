@@ -38,7 +38,7 @@ find-managers-test:
 find-managers-batch:
 	$(PYTHON) main.py pipeline --skip-scrape --skip-outreach --managers-limit 10
 
-# Send connection requests + short note (max 15/day, decision-makers only)
+# Send connection requests (max 20/day, decision-makers only — requires DISPLAY=:0)
 connect:
 	$(PYTHON) main.py outreach
 

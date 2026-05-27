@@ -14,18 +14,21 @@ from src.scrapers.base_scraper import BaseScraper
 
 # Highest priority — actively own the hiring process
 _RECRUITER_KEYWORDS = [
-    "recruiter", "talent acquisition", "talent advisor", "talent partner",
-    "head of talent", "hr ", "human resources", "people operations",
+    "recruiter", "recruitment", "headhunter", "head hunter",
+    "talent acquisition", "talent advisor", "talent partner",
+    "head of talent", "head of recruiting", "head of people",
+    "hr ", "human resources", "people operations", "people partner",
     "technical recruiter", "tech recruiter", "sourcer", "sourcing",
     "staffing", "hiring manager",
 ]
 
 # Direct hiring managers — close enough to the role to act on a cold message
 _TECHNICAL_KEYWORDS = [
-    "engineering manager", "engineering lead",
+    "engineering manager", "engineering lead", "engineering leader",
+    "team lead", "tech lead", "technical lead",
     "head of engineering", "head of platform", "head of infrastructure",
     "head of devops", "head of mlops", "head of data engineering",
-    "head of sre", "head of cloud",
+    "head of sre", "head of cloud", "head of ai",
     "director of engineering", "director of platform", "director of infrastructure",
     "director of devops", "director of cloud", "director of sre",
     "director of mlops", "director of data engineering",
@@ -34,17 +37,18 @@ _TECHNICAL_KEYWORDS = [
     "architect",
 ]
 
-# Skip — too senior (won't act on cold messages), peer-level, or irrelevant
-_SKIP_KEYWORDS = [
-    # C-suite — too far from hiring decisions for IC roles
+# Hard skip — always skip even if a positive keyword also matches (too senior)
+_HARD_SKIP_KEYWORDS = [
     "cto", "ceo", "coo", "cpo", "cfo", "chief",
     "president", "vice president", "vp ", "vp,", "vp-",
     "svp", "evp", "avp",
     "founder", "co-founder",
-    # Peer-level engineers — not decision makers
+]
+
+# Soft skip — skip only when no positive (recruiter/technical) keyword matches
+_SOFT_SKIP_KEYWORDS = [
     "software engineer", "senior software engineer",
     "backend", "frontend", "fullstack", "full stack",
-    # Irrelevant functions
     "test engineer", "automation engineer", "qa engineer", "qa analyst",
     "data analyst", "business analyst", "sales engineer", "account manager",
     "product manager", "scrum master", "agile coach",
@@ -57,13 +61,19 @@ def _classify_manager(role: str) -> str:
         return "skip"
     role_lower = role.lower()
 
-    # Skip check first — overrides everything
-    if any(kw in role_lower for kw in _SKIP_KEYWORDS):
+    # Hard skip always wins — use word boundaries to avoid false matches
+    # e.g. "cto" inside "director", "coo" inside "coordinator"
+    import re
+    if any(re.search(r"\b" + re.escape(kw.strip()) + r"\b", role_lower) for kw in _HARD_SKIP_KEYWORDS):
         return "skip"
+    # Positive match wins over soft-skip (e.g. "Software Engineering Leader")
     if any(kw in role_lower for kw in _RECRUITER_KEYWORDS):
         return "recruiter"
     if any(kw in role_lower for kw in _TECHNICAL_KEYWORDS):
         return "technical"
+    # Peer-level or irrelevant — no positive match
+    if any(kw in role_lower for kw in _SOFT_SKIP_KEYWORDS):
+        return "skip"
     return "skip"
 
 
@@ -394,7 +404,7 @@ class OutreachBot(BaseScraper):
                 .join(Job, HiringManager.job_id == Job.id)
                 .filter(
                     HiringManager.status == ManagerStatus.PENDING,
-                    Job.scraped_at >= cutoff,
+                    HiringManager.found_at >= cutoff,
                 )
                 .order_by(Job.fit_score.desc())
                 .limit(settings.max_daily_connections * 3)
