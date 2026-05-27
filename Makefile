@@ -34,6 +34,10 @@ find-managers:
 find-managers-test:
 	$(PYTHON) main.py pipeline --skip-scrape --skip-outreach --managers-limit 3
 
+# Standard run — 10 jobs per batch, covers 36 recommended in ~4 runs
+find-managers-batch:
+	$(PYTHON) main.py pipeline --skip-scrape --skip-outreach --managers-limit 10
+
 # Send connection requests + short note (max 15/day, decision-makers only)
 connect:
 	$(PYTHON) main.py outreach

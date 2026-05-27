@@ -201,11 +201,34 @@ class OutreachBot(BaseScraper):
         # Escape closes most LinkedIn modals and dismisses sticky promos.
         await page.keyboard.press("Escape")
         await asyncio.sleep(0.4)
-        # If a Premium promo banner is present, scroll it out of the click path.
+        # Disable LinkedIn overlays that intercept pointer events.
+        # Use pointer-events:none instead of .remove() — removing parent divs
+        # can accidentally delete profile action buttons (Connect, Message, More).
         try:
-            promo = await page.query_selector("div._607fba13, [data-test-premium-custom-promo]")
-            if promo and await promo.is_visible():
-                await page.evaluate("el => el.remove()", promo)
+            await page.evaluate("""
+                () => {
+                    // Known class selectors (may rotate with LinkedIn deploys)
+                    ['div._607fba13', 'div._2a82eb9e', '[data-test-premium-custom-promo]']
+                        .forEach(sel => document.querySelectorAll(sel).forEach(el => {
+                            el.style.pointerEvents = 'none';
+                        }));
+                    // Content-based fallback: walk up to the nearest fixed/sticky ancestor
+                    document.querySelectorAll('a').forEach(a => {
+                        if (a.textContent.includes('Reactivate Premium')) {
+                            let p = a.parentElement;
+                            while (p && p !== document.body) {
+                                const pos = window.getComputedStyle(p).position;
+                                if (pos === 'fixed' || pos === 'sticky') {
+                                    p.style.pointerEvents = 'none';
+                                    return;
+                                }
+                                p = p.parentElement;
+                            }
+                            a.style.pointerEvents = 'none';
+                        }
+                    });
+                }
+            """)
         except Exception:
             pass
 
@@ -249,14 +272,18 @@ class OutreachBot(BaseScraper):
                 if more_btn:
                     break
             if more_btn:
-                await more_btn.click()
+                # JS click bypasses any fixed overlay intercepting pointer events
+                await page.evaluate("el => el.click()", more_btn)
                 await self._human_delay()
                 for sel in [
                     'div[aria-label*="connect" i]',
                     'li[aria-label*="connect" i]',
                     'span:has-text("Connect")',
+                    'span:has-text("Conectar")',
                     'button:has-text("Connect")',
+                    'button:has-text("Conectar")',
                     '[role="menuitem"]:has-text("Connect")',
+                    '[role="menuitem"]:has-text("Conectar")',
                 ]:
                     connect_btn = await page.query_selector(sel)
                     if connect_btn and await connect_btn.is_visible():
@@ -268,7 +295,7 @@ class OutreachBot(BaseScraper):
                 "Connect button not found — already connected, following only, or profile restricted."
             )
 
-        await connect_btn.click()
+        await page.evaluate("el => el.click()", connect_btn)
 
         # Wait for the connection modal to appear (up to 6s)
         try:
@@ -283,40 +310,55 @@ class OutreachBot(BaseScraper):
             pass
         await self._human_delay()
 
-        # "Add a note" — try all known label variants
+        # "Add a note" — English + Spanish aria-label / text variants
         add_note_btn = None
         for sel in [
             'button[aria-label="Add a note"]',
             'button[aria-label*="note"]',
+            'button[aria-label*="nota"]',
             'button:has-text("Add a note")',
+            'button:has-text("Agregar nota")',
         ]:
             add_note_btn = await page.query_selector(sel)
             if add_note_btn and await add_note_btn.is_visible():
                 break
             add_note_btn = None
 
-        if add_note_btn:
+        # Skip "Add a note" — LinkedIn Premium required to attach a note on
+        # connection requests for most profiles. Clicking it opens a Premium
+        # upsell that changes modal state and hides "Send without a note".
+        # Re-enable this block once a Premium subscription is active.
+        if False and add_note_btn:  # noqa: SIM210  (disabled until Premium)
             await add_note_btn.click()
             await self._human_delay()
-            textarea = await page.wait_for_selector(
-                'textarea[name="message"]', timeout=8000
-            )
-            await textarea.fill(note)
-            await self._human_delay()
+            try:
+                textarea = await page.wait_for_selector(
+                    'textarea[name="message"]', timeout=8000
+                )
+                await textarea.fill(note)
+                await self._human_delay()
+            except Exception:
+                logger.warning(
+                    f"Note textarea unavailable for {manager.name} — sending without note."
+                )
         else:
-            logger.warning(
-                f"'Add a note' button not found for {manager.name} — sending without note."
+            logger.info(
+                f"Sending without note for {manager.name} (Premium required for notes)."
             )
 
-        # "Send" — LinkedIn uses several labels depending on modal state
+        # "Send" — English + Spanish aria-label / text variants
         send_btn = None
         for sel in [
             'button[aria-label="Send now"]',
             'button[aria-label="Send without a note"]',
             'button[aria-label*="Send"]',
+            'button[aria-label*="nviar"]',       # Enviar / Enviar ahora / Enviar sin nota
             'button:has-text("Send now")',
             'button:has-text("Send without a note")',
             'button:has-text("Send")',
+            'button:has-text("Enviar ahora")',
+            'button:has-text("Enviar sin nota")',
+            'button:has-text("Enviar")',
         ]:
             send_btn = await page.query_selector(sel)
             if send_btn and await send_btn.is_visible():
@@ -324,15 +366,23 @@ class OutreachBot(BaseScraper):
             send_btn = None
 
         if not send_btn:
-            # Screenshot for diagnosis
             try:
                 await page.screenshot(path="/tmp/linkedin_modal_debug.png", full_page=False, timeout=10000)
                 logger.error("Modal screenshot saved to /tmp/linkedin_modal_debug.png")
+                # Dump all visible button labels for diagnosis
+                btns = await page.query_selector_all("button")
+                labels = []
+                for b in btns:
+                    if await b.is_visible():
+                        lbl = await b.get_attribute("aria-label") or ""
+                        txt = (await b.inner_text()).strip()[:40]
+                        labels.append(f"aria='{lbl}' text='{txt}'")
+                logger.error(f"Visible buttons: {labels}")
             except Exception:
                 pass
             raise RuntimeError("Send button not found.")
 
-        await send_btn.click()
+        await page.evaluate("el => el.click()", send_btn)
 
     # ── DB helpers ───────────────────────────────────────────────────────────
 
@@ -382,15 +432,14 @@ class OutreachBot(BaseScraper):
     async def _find_profile_connect_btn(self, page):
         """Return the Connect button in the profile header (y < 700px).
 
-        LinkedIn's sidebar 'People you may know' renders 'Invite X to connect'
-        buttons — excluded by position. 700px covers tall profile headers.
-        Text-based fallback covers aria-label variations across LinkedIn UI versions.
+        Sidebar 'People you may know' buttons have aria-label='Invite X to connect'
+        — we skip those. Exact-match selectors first; text fallback last with
+        an 'Invite' guard to avoid sidebar false-positives.
         """
+        # Exact-match selectors (English + Spanish) — never match sidebar buttons
         for sel in [
             'button[aria-label="Connect"]',
-            'button[aria-label*="Invite"][aria-label*="connect"]',
-            'button[aria-label*="to connect"]',
-            'button:has-text("Connect")',   # fallback for aria-label variations
+            'button[aria-label="Conectar"]',
         ]:
             candidates = await page.query_selector_all(sel)
             for btn in candidates:
@@ -399,6 +448,21 @@ class OutreachBot(BaseScraper):
                 box = await btn.bounding_box()
                 if box and box["y"] < 700:
                     return btn
+
+        # Text-based fallback — skip any button whose aria-label contains "Invite"
+        # (those are sidebar 'Invite X to connect' suggestions, not the profile button)
+        for btn in await page.query_selector_all(
+            'button:has-text("Connect"), button:has-text("Conectar")'
+        ):
+            if not await btn.is_visible():
+                continue
+            aria = (await btn.get_attribute("aria-label") or "").lower()
+            if "invite" in aria:
+                continue
+            box = await btn.bounding_box()
+            if box and box["y"] < 700:
+                return btn
+
         return None
 
     async def _warmup_session(self, page) -> None:
