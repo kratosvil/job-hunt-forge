@@ -109,6 +109,115 @@ def apply() -> None:
     console.print("[yellow]Auto-apply — Phase 2 feature. Run outreach first.[/yellow]")
 
 
+@app.command(name="easy-apply")
+def easy_apply(
+    limit: int = typer.Option(30, "--limit", help="Max jobs to scan per run."),
+    output: str = typer.Option("data/easy_apply.txt", "--output", help="Path for output file with qualifying job links."),
+) -> None:
+    """Scan LinkedIn Easy Apply jobs and list qualifying links for manual application."""
+    from src.scrapers.easy_apply_scraper import EasyApplyScraper
+    from src.intelligence.jd_analyzer import analyze
+    from src.database.models import Job, JobStatus
+    from sqlalchemy.exc import IntegrityError
+    import json
+
+    async def _run():
+        results = []
+        scanned = 0
+
+        async with EasyApplyScraper() as scraper:
+            async for raw in scraper.scrape():
+                if limit and scanned >= limit:
+                    break
+                if not raw.get("url") or not raw.get("jd_text"):
+                    continue
+
+                url = raw["url"]
+                scanned += 1
+
+                # Skip if already in DB — reuse cached fit score
+                with get_session() as session:
+                    existing = session.query(Job).filter(Job.url == url).first()
+                    if existing:
+                        if existing.status == JobStatus.ANALYZED and existing.source == "linkedin_easy_apply":
+                            results.append({
+                                "url": url,
+                                "title": existing.title,
+                                "company": existing.company,
+                                "fit": existing.fit_score or 0.0,
+                            })
+                        continue
+
+                try:
+                    analysis = analyze(raw["jd_text"])
+                    fit = analysis.get("fit_score", 0.0)
+                    recommended = analysis.get("application_recommended", False)
+
+                    job = Job(
+                        url=url,
+                        title=raw["title"].strip(),
+                        company=raw["company"].strip(),
+                        location=raw.get("location", ""),
+                        jd_text=raw["jd_text"],
+                        fit_score=fit,
+                        matched_skills=json.dumps(analysis.get("matched_skills", [])),
+                        missing_skills=json.dumps(analysis.get("missing_skills", [])),
+                        growth_signals=json.dumps(analysis.get("company_growth_signals", [])),
+                        hiring_manager_signals=json.dumps(analysis.get("hiring_manager_signals", [])),
+                        salary_range=analysis.get("salary_range_visible"),
+                        remote_friendly=analysis.get("remote_friendly"),
+                        source="linkedin_easy_apply",
+                        status=JobStatus.ANALYZED if recommended else JobStatus.SKIPPED,
+                    )
+                    with get_session() as session:
+                        session.add(job)
+
+                    if recommended:
+                        results.append({
+                            "url": url,
+                            "title": raw["title"].strip(),
+                            "company": raw["company"].strip(),
+                            "fit": fit,
+                        })
+
+                    logger.info(
+                        f"[{scanned}/{limit}] {raw['title'][:45]} @ {raw['company'][:25]} "
+                        f"fit={fit:.0%} {'✓' if recommended else '✗'}"
+                    )
+                except IntegrityError:
+                    logger.debug(f"Duplicate skipped: {url}")
+                except Exception as exc:
+                    logger.error(f"Error processing {url}: {exc}")
+
+        results.sort(key=lambda x: x["fit"], reverse=True)
+
+        table = Table(title=f"Easy Apply Jobs — {len(results)} qualifying (fit ≥ {settings.min_fit_score:.0%})")
+        table.add_column("Fit", style="green", width=6)
+        table.add_column("Title", style="cyan")
+        table.add_column("Company", style="magenta")
+        table.add_column("URL")
+
+        for r in results:
+            table.add_row(
+                f"{r['fit']:.0%}",
+                r["title"][:55],
+                r["company"][:30],
+                r["url"],
+            )
+        console.print(table)
+
+        with open(output, "w") as f:
+            f.write(f"Easy Apply qualifying jobs — scanned {scanned}, qualified {len(results)}\n")
+            f.write("=" * 70 + "\n\n")
+            for r in results:
+                f.write(f"[{r['fit']:.0%}] {r['title']} @ {r['company']}\n")
+                f.write(f"{r['url']}\n\n")
+
+        console.print(f"[green]Saved {len(results)} job links → {output}[/green]")
+
+    asyncio.run(_run())
+
+
 @app.command()
 def pipeline(
     skip_scrape: bool = typer.Option(False, "--skip-scrape", help="Skip scraping stage."),

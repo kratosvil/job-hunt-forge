@@ -5,11 +5,6 @@ from loguru import logger
 from config.settings import settings
 from src.scrapers.base_scraper import BaseScraper
 
-_LINKEDIN_JOBS_URL = (
-    "https://www.linkedin.com/jobs/search/"
-    "?keywords={query}&location={location}&f_WT=2&f_TPR=r86400"
-)
-
 
 class LinkedInScraper(BaseScraper):
     """
@@ -24,11 +19,16 @@ class LinkedInScraper(BaseScraper):
     - Uses injected cookies (not bot-originated login)
     """
 
+    _SEARCH_URL: str = (
+        "https://www.linkedin.com/jobs/search/"
+        "?keywords={query}&location={location}&f_WT=2&f_TPR=r86400"
+    )
+
     async def scrape(self) -> AsyncGenerator[dict, None]:
         page = await self._new_page()
         for role in settings.target_roles:
             for location in settings.target_locations:
-                url = _LINKEDIN_JOBS_URL.format(
+                url = self._SEARCH_URL.format(
                     query=role.replace(" ", "%20"),
                     location=location.replace(" ", "%20"),
                 )
