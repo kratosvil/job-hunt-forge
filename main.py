@@ -6,6 +6,7 @@ from loguru import logger
 from rich.console import Console
 from rich.table import Table
 
+from config.settings import settings
 from src.database.db_manager import init_db, get_session
 from src.database.models import Job, HiringManager
 
