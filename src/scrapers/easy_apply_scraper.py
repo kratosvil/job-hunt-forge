@@ -10,7 +10,7 @@ class EasyApplyScraper(LinkedInScraper):
 
     _SEARCH_URL: str = (
         "https://www.linkedin.com/jobs/search/"
-        "?keywords={query}&location={location}&f_WT=2&f_TPR=r86400&f_LF=f_AL"
+        "?keywords={query}&location={location}&f_WT=2&f_TPR=r172800&f_LF=f_AL"
     )
 
     async def scrape(self):

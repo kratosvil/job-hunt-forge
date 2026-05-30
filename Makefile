@@ -52,9 +52,9 @@ pipeline-fast:
 analyze:
 	$(PYTHON) main.py analyze
 
-# Scan LinkedIn Easy Apply jobs — outputs qualifying links to data/easy_apply.txt
+# Scan LinkedIn Easy Apply jobs (48h) — top 10 por fit score → data/easy_apply.txt
 easy-apply:
-	$(PYTHON) main.py easy-apply --limit 30
+	$(PYTHON) main.py easy-apply --limit 50 --top 10
 
 apply:
 	$(PYTHON) main.py apply

@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 
 import typer
 from loguru import logger
@@ -111,10 +112,11 @@ def apply() -> None:
 
 @app.command(name="easy-apply")
 def easy_apply(
-    limit: int = typer.Option(30, "--limit", help="Max jobs to scan per run."),
+    limit: int = typer.Option(50, "--limit", help="Max jobs to scan per run."),
+    top: int = typer.Option(10, "--top", help="Top N qualifying jobs to show, ranked by fit score."),
     output: str = typer.Option("data/easy_apply.txt", "--output", help="Path for output file with qualifying job links."),
 ) -> None:
-    """Scan LinkedIn Easy Apply jobs and list qualifying links for manual application."""
+    """Scan LinkedIn Easy Apply jobs (48h) and list top N qualifying links for manual application."""
     from src.scrapers.easy_apply_scraper import EasyApplyScraper
     from src.intelligence.jd_analyzer import analyze
     from src.database.models import Job, JobStatus
@@ -139,12 +141,12 @@ def easy_apply(
                 with get_session() as session:
                     existing = session.query(Job).filter(Job.url == url).first()
                     if existing:
-                        if existing.status == JobStatus.ANALYZED and existing.source == "linkedin_easy_apply":
+                        if existing.source == "linkedin_easy_apply" and existing.fit_score:
                             results.append({
                                 "url": url,
                                 "title": existing.title,
                                 "company": existing.company,
-                                "fit": existing.fit_score or 0.0,
+                                "fit": existing.fit_score,
                             })
                         continue
 
@@ -190,30 +192,33 @@ def easy_apply(
                     logger.error(f"Error processing {url}: {exc}")
 
         results.sort(key=lambda x: x["fit"], reverse=True)
+        top_results = results[:top]
 
-        table = Table(title=f"Easy Apply Jobs — {len(results)} qualifying (fit ≥ {settings.min_fit_score:.0%})")
+        table = Table(title=f"Easy Apply — Top {len(top_results)} jobs (48h · fit ≥ {settings.min_fit_score:.0%} · scanned {scanned})")
+        table.add_column("#", style="dim", width=3)
         table.add_column("Fit", style="green", width=6)
         table.add_column("Title", style="cyan")
         table.add_column("Company", style="magenta")
         table.add_column("URL")
 
-        for r in results:
+        for i, r in enumerate(top_results, 1):
             table.add_row(
+                str(i),
                 f"{r['fit']:.0%}",
-                r["title"][:55],
-                r["company"][:30],
+                r["title"][:50],
+                r["company"][:28],
                 r["url"],
             )
         console.print(table)
 
         with open(output, "w") as f:
-            f.write(f"Easy Apply qualifying jobs — scanned {scanned}, qualified {len(results)}\n")
+            f.write(f"Easy Apply — Top {len(top_results)} jobs · 48h · scanned {scanned} · {datetime.date.today()}\n")
             f.write("=" * 70 + "\n\n")
-            for r in results:
-                f.write(f"[{r['fit']:.0%}] {r['title']} @ {r['company']}\n")
-                f.write(f"{r['url']}\n\n")
+            for i, r in enumerate(top_results, 1):
+                f.write(f"{i}. [{r['fit']:.0%}] {r['title']} @ {r['company']}\n")
+                f.write(f"   {r['url']}\n\n")
 
-        console.print(f"[green]Saved {len(results)} job links → {output}[/green]")
+        console.print(f"[green]Saved top {len(top_results)} links → {output}[/green]")
 
     asyncio.run(_run())
 
