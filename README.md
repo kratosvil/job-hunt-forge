@@ -4,10 +4,18 @@ AI-powered job search automation suite — LinkedIn scraping, LLM-based CV scori
 
 ## What it does
 
+Two parallel tracks — run both daily:
+
+### Track 1 — Outreach pipeline (peer-to-peer, bypasses ATS)
 1. **Scrapes** LinkedIn job listings for target roles using a real persistent Chrome browser profile
 2. **Scores** each listing against your CV with an LLM (AWS Bedrock — Claude Haiku) — fit score 0–1
 3. **Finds** hiring managers (recruiters + engineering managers) on LinkedIn for qualified jobs
 4. **Connects** to those managers with personalized, role-aware connection requests — no ATS involved
+
+### Track 2 — Easy Apply scanner (direct manual application)
+5. **Scans** LinkedIn Easy Apply jobs posted in the last 48 hours
+6. **Scores** them against your CV with the same LLM pipeline
+7. **Outputs** the top 10 by fit score to terminal + `data/easy_apply.txt` for fast manual application
 
 The system runs daily on your local machine, staying within LinkedIn's safe usage limits to protect your account.
 
@@ -25,6 +33,7 @@ job-hunt-forge/
 │   ├── scrapers/
 │   │   ├── base_scraper.py      # Playwright base — persistent Chrome profile, anti-bot delays
 │   │   ├── linkedin_scraper.py  # LinkedIn job listing scraper (guest frontend)
+│   │   ├── easy_apply_scraper.py# Easy Apply variant — adds f_LF=f_AL + 48h recency filter
 │   │   ├── indeed_scraper.py    # Indeed scraper (optional)
 │   │   └── manager_finder.py    # LinkedIn people search — finds managers for qualified jobs
 │   ├── intelligence/
@@ -39,6 +48,7 @@ job-hunt-forge/
 │   └── test_outreach_single.py  # E2E test for a single manager by DB id
 ├── data/
 │   ├── master_cv.example.json   # CV schema — copy to master_cv.json and fill in
+│   ├── easy_apply.txt           # Output of easy-apply scan (gitignored)
 │   └── jobs.db                  # Auto-created on first run (gitignored)
 ├── main.py                      # CLI entry point (Typer + Rich)
 └── Makefile                     # Shorthand for all common operations
@@ -86,17 +96,24 @@ make setup-db
 # Remove stale Chrome lock if present (e.g. after a crash)
 rm -f data/browser_profile/SingletonLock
 
-# Scrape up to 20 fresh job listings and score them
-make scrape
+# Track 1 — Outreach pipeline
+make scrape                    # Scrape up to 20 fresh job listings and score them
+make find-managers-batch       # Find hiring managers (run 2–3x to cover the queue)
+DISPLAY=:0 make connect        # Send up to 20 connection requests
 
-# Find hiring managers for qualified jobs (run 2–3x to cover the queue)
-make find-managers-batch
-
-# Send up to 20 connection requests to recruiters and engineering managers
-DISPLAY=:0 make connect
+# Track 2 — Easy Apply scanner (independent, run anytime)
+DISPLAY=:0 make easy-apply     # Scan 50 Easy Apply jobs (48h), output top 10 → data/easy_apply.txt
 ```
 
-`make connect` requires a display (headful Chrome). On a headless server, set up a virtual display with `Xvfb`.
+`make connect` and `make easy-apply` require a display (headful Chrome). On a headless server, set up a virtual display with `Xvfb`.
+
+### Easy Apply output
+
+`make easy-apply` produces:
+- A numbered table in the terminal ranked by fit score
+- `data/easy_apply.txt` with the same list for easy copy-paste
+
+Open each link in the browser where your LinkedIn session is active and apply directly — no ATS, no recruiter filter, forms pre-filled by LinkedIn.
 
 ## Pipeline flags
 
@@ -110,6 +127,10 @@ make pipeline-fast
 # Only find managers — no scrape, no outreach
 make find-managers-batch          # 10 jobs per run
 make find-managers                # all qualified jobs at once
+
+# Easy Apply scanner — custom limits
+.venv/bin/python main.py easy-apply --limit 100 --top 20   # scan 100, show top 20
+.venv/bin/python main.py easy-apply --limit 2 --top 2      # quick test run
 
 # Check pipeline stats
 make status
