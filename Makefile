@@ -35,8 +35,11 @@ find-managers-test:
 	$(PYTHON) main.py pipeline --skip-scrape --skip-outreach --managers-limit 3
 
 # Standard run — 10 jobs per batch, covers 36 recommended in ~4 runs
+# PAUSADO — riesgo de ban LinkedIn por visitas masivas a perfiles. Reactivar cuando sea seguro.
 find-managers-batch:
-	$(PYTHON) main.py pipeline --skip-scrape --skip-outreach --managers-limit 10
+	@echo "PAUSADO: find-managers-batch deshabilitado por riesgo de ban LinkedIn."
+	@echo "Usa 'make easy-apply' como alternativa. Ver README para reactivar."
+	@exit 1
 
 # Send connection requests (max 20/day, decision-makers only — requires DISPLAY=:0)
 connect:
