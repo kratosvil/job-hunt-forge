@@ -60,9 +60,13 @@ pipeline-fast:
 analyze:
 	$(PYTHON) main.py analyze
 
-# Scan LinkedIn Easy Apply jobs (48h) — top 10 por fit score → data/easy_apply.txt
+# Scan LinkedIn Easy Apply jobs (48h) por región — 15 USA / 10 Europa / 5 LATAM
 easy-apply:
-	$(PYTHON) main.py easy-apply --limit 50 --top 10
+	DISPLAY=:0 $(PYTHON) main.py easy-apply --usa 15 --europe 10 --latam 5
+
+# Top 10 best-fit jobs sin Easy Apply — para outreach manual
+top-jobs:
+	$(PYTHON) main.py top-jobs --top 10 --min-fit 0.80
 
 apply:
 	$(PYTHON) main.py apply

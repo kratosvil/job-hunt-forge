@@ -113,24 +113,33 @@ def apply() -> None:
 
 @app.command(name="easy-apply")
 def easy_apply(
-    limit: int = typer.Option(50, "--limit", help="Max jobs to scan per run."),
-    top: int = typer.Option(10, "--top", help="Top N qualifying jobs to show, ranked by fit score."),
-    output: str = typer.Option("data/easy_apply.txt", "--output", help="Path for output file with qualifying job links."),
+    usa: int = typer.Option(15, "--usa", help="Max Easy Apply jobs from USA."),
+    europe: int = typer.Option(10, "--europe", help="Max Easy Apply jobs from Europe."),
+    latam: int = typer.Option(5, "--latam", help="Max Easy Apply jobs from Colombia/LATAM."),
+    output: str = typer.Option("data/easy_apply.txt", "--output", help="Output TXT file path."),
+    excel: str = typer.Option("", "--excel", help="Optional Excel output path."),
 ) -> None:
-    """Scan LinkedIn Easy Apply jobs (48h) and list top N qualifying links for manual application."""
+    """Scan LinkedIn Easy Apply jobs (48h) by region — USA / Europe / LATAM."""
     from src.scrapers.easy_apply_scraper import EasyApplyScraper
     from src.intelligence.jd_analyzer import analyze
     from src.database.models import Job, JobStatus
     from sqlalchemy.exc import IntegrityError
     import json
 
-    async def _run():
+    REGIONS = [
+        ("USA",    ["United States"],              usa),
+        ("Europa", ["Europe"],                     europe),
+        ("LATAM",  ["Colombia", "Latin America"],  latam),
+    ]
+
+    async def _scrape_region(locations: list[str], quota: int, region: str) -> list[dict]:
         results = []
         scanned = 0
+        scan_limit = quota * 4  # scan up to 4× the quota to find enough recommended
 
-        async with EasyApplyScraper() as scraper:
+        async with EasyApplyScraper(locations=locations) as scraper:
             async for raw in scraper.scrape():
-                if limit and scanned >= limit:
+                if scanned >= scan_limit or len(results) >= quota:
                     break
                 if not raw.get("url") or not raw.get("jd_text"):
                     continue
@@ -138,15 +147,13 @@ def easy_apply(
                 url = raw["url"]
                 scanned += 1
 
-                # Skip if already in DB — reuse cached fit score
                 with get_session() as session:
                     existing = session.query(Job).filter(Job.url == url).first()
                     if existing:
                         if existing.source == "linkedin_easy_apply" and existing.fit_score:
                             results.append({
-                                "url": url,
-                                "title": existing.title,
-                                "company": existing.company,
+                                "region": region, "url": url,
+                                "title": existing.title, "company": existing.company,
                                 "fit": existing.fit_score,
                             })
                         continue
@@ -157,11 +164,8 @@ def easy_apply(
                     recommended = analysis.get("application_recommended", False)
 
                     job = Job(
-                        url=url,
-                        title=raw["title"].strip(),
-                        company=raw["company"].strip(),
-                        location=raw.get("location", ""),
-                        jd_text=raw["jd_text"],
+                        url=url, title=raw["title"].strip(), company=raw["company"].strip(),
+                        location=raw.get("location", ""), jd_text=raw["jd_text"],
                         fit_score=fit,
                         matched_skills=json.dumps(analysis.get("matched_skills", [])),
                         missing_skills=json.dumps(analysis.get("missing_skills", [])),
@@ -177,51 +181,121 @@ def easy_apply(
 
                     if recommended:
                         results.append({
-                            "url": url,
-                            "title": raw["title"].strip(),
-                            "company": raw["company"].strip(),
+                            "region": region, "url": url,
+                            "title": raw["title"].strip(), "company": raw["company"].strip(),
                             "fit": fit,
                         })
-
-                    logger.info(
-                        f"[{scanned}/{limit}] {raw['title'][:45]} @ {raw['company'][:25]} "
-                        f"fit={fit:.0%} {'✓' if recommended else '✗'}"
-                    )
+                    logger.info(f"[{region}][{scanned}] {raw['title'][:40]} @ {raw['company'][:20]} fit={fit:.0%} {'✓' if recommended else '✗'}")
                 except IntegrityError:
                     logger.debug(f"Duplicate skipped: {url}")
                 except Exception as exc:
                     logger.error(f"Error processing {url}: {exc}")
 
         results.sort(key=lambda x: x["fit"], reverse=True)
-        top_results = results[:top]
+        return results[:quota]
 
-        table = Table(title=f"Easy Apply — Top {len(top_results)} jobs (48h · fit ≥ {settings.min_fit_score:.0%} · scanned {scanned})")
-        table.add_column("#", style="dim", width=3)
-        table.add_column("Fit", style="green", width=6)
-        table.add_column("Title", style="cyan")
-        table.add_column("Company", style="magenta")
+    async def _run():
+        all_results = []
+        total_scanned = 0
+
+        for region_name, locs, quota in REGIONS:
+            logger.info(f"--- Scanning {region_name} (quota: {quota}) ---")
+            region_results = await _scrape_region(locs, quota, region_name)
+            all_results.extend(region_results)
+            total_scanned += len(region_results)
+            logger.info(f"--- {region_name}: {len(region_results)}/{quota} found ---")
+
+        # Terminal table
+        table = Table(title=f"Easy Apply — {len(all_results)} jobs · 48h · {datetime.date.today()}")
+        table.add_column("#",      style="dim",     width=3)
+        table.add_column("Región", style="yellow",  width=7)
+        table.add_column("Fit",    style="green",   width=6)
+        table.add_column("Título", style="cyan",    min_width=35)
+        table.add_column("Empresa",style="magenta", min_width=18)
         table.add_column("URL")
 
-        for i, r in enumerate(top_results, 1):
-            table.add_row(
-                str(i),
-                f"{r['fit']:.0%}",
-                r["title"][:50],
-                r["company"][:28],
-                r["url"],
-            )
+        for i, r in enumerate(all_results, 1):
+            table.add_row(str(i), r["region"], f"{r['fit']:.0%}",
+                          r["title"][:48], r["company"][:25], r["url"])
         console.print(table)
 
+        # TXT output
         with open(output, "w") as f:
-            f.write(f"Easy Apply — Top {len(top_results)} jobs · 48h · scanned {scanned} · {datetime.date.today()}\n")
+            f.write(f"Easy Apply — {len(all_results)} jobs · 48h · {datetime.date.today()}\n")
             f.write("=" * 70 + "\n\n")
-            for i, r in enumerate(top_results, 1):
-                f.write(f"{i}. [{r['fit']:.0%}] {r['title']} @ {r['company']}\n")
+            for i, r in enumerate(all_results, 1):
+                f.write(f"{i}. [{r['region']}][{r['fit']:.0%}] {r['title']} @ {r['company']}\n")
                 f.write(f"   {r['url']}\n\n")
+        console.print(f"[green]Saved {len(all_results)} links → {output}[/green]")
 
-        console.print(f"[green]Saved top {len(top_results)} links → {output}[/green]")
+        return all_results
 
-    asyncio.run(_run())
+    results = asyncio.run(_run())
+    return results
+
+
+@app.command(name="top-jobs")
+def top_jobs(
+    top: int = typer.Option(10, "--top", help="Number of best-fit jobs to show."),
+    min_fit: float = typer.Option(0.80, "--min-fit", help="Minimum fit score threshold."),
+    output: str = typer.Option("data/top_jobs.txt", "--output", help="Output TXT file path."),
+) -> None:
+    """Show top N best-fit non-Easy-Apply jobs from DB for manual outreach."""
+    from src.database.models import Job, JobStatus
+
+    with get_session() as session:
+        jobs = (
+            session.query(Job)
+            .filter(
+                Job.source != "linkedin_easy_apply",
+                Job.fit_score >= min_fit,
+                Job.status == JobStatus.ANALYZED,
+            )
+            .order_by(Job.fit_score.desc())
+            .limit(top)
+            .all()
+        )
+
+        if not jobs and min_fit > 0.65:
+            # Fallback to lower threshold
+            jobs = (
+                session.query(Job)
+                .filter(
+                    Job.source != "linkedin_easy_apply",
+                    Job.fit_score >= settings.min_fit_score,
+                    Job.status == JobStatus.ANALYZED,
+                )
+                .order_by(Job.fit_score.desc())
+                .limit(top)
+                .all()
+            )
+
+        results = [
+            {"title": j.title, "company": j.company, "fit": j.fit_score,
+             "location": j.location or "", "url": j.url}
+            for j in jobs
+        ]
+
+    table = Table(title=f"Best Fit Jobs (no Easy Apply) — Top {len(results)} · fit ≥ {min_fit:.0%}")
+    table.add_column("#",        style="dim",     width=3)
+    table.add_column("Fit",      style="green",   width=6)
+    table.add_column("Título",   style="cyan",    min_width=38)
+    table.add_column("Empresa",  style="magenta", min_width=20)
+    table.add_column("URL")
+
+    for i, r in enumerate(results, 1):
+        table.add_row(str(i), f"{r['fit']:.0%}", r["title"][:50],
+                      r["company"][:25], r["url"])
+    console.print(table)
+
+    with open(output, "w") as f:
+        f.write(f"Best Fit Jobs (manual outreach) — Top {len(results)} · {datetime.date.today()}\n")
+        f.write("=" * 70 + "\n\n")
+        for i, r in enumerate(results, 1):
+            f.write(f"{i}. [{r['fit']:.0%}] {r['title']} @ {r['company']}\n")
+            f.write(f"   {r['url']}\n\n")
+
+    console.print(f"[green]Saved {len(results)} links → {output}[/green]")
 
 
 @app.command()
