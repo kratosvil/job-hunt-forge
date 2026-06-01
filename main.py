@@ -117,7 +117,7 @@ def easy_apply(
     europe: int = typer.Option(10, "--europe", help="Max Easy Apply jobs from Europe."),
     latam: int = typer.Option(5, "--latam", help="Max Easy Apply jobs from Colombia/LATAM."),
     output: str = typer.Option("data/easy_apply.txt", "--output", help="Output TXT file path."),
-    excel: str = typer.Option("", "--excel", help="Optional Excel output path."),
+    roles: str = typer.Option("", "--roles", help="Comma-separated roles to search (overrides settings)."),
 ) -> None:
     """Scan LinkedIn Easy Apply jobs (48h) by region — USA / Europe / LATAM."""
     from src.scrapers.easy_apply_scraper import EasyApplyScraper
@@ -131,13 +131,14 @@ def easy_apply(
         ("Europa", ["Europe"],                     europe),
         ("LATAM",  ["Colombia", "Latin America"],  latam),
     ]
+    custom_roles = [r.strip() for r in roles.split(",") if r.strip()] if roles else None
 
     async def _scrape_region(locations: list[str], quota: int, region: str) -> list[dict]:
         results = []
         scanned = 0
         scan_limit = quota * 4  # scan up to 4× the quota to find enough recommended
 
-        async with EasyApplyScraper(locations=locations) as scraper:
+        async with EasyApplyScraper(locations=locations, roles=custom_roles) as scraper:
             async for raw in scraper.scrape():
                 if scanned >= scan_limit or len(results) >= quota:
                     break

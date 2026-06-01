@@ -25,13 +25,14 @@ class LinkedInScraper(BaseScraper):
         "?keywords={query}&location={location}&f_WT=2&f_TPR=r86400"
     )
 
-    def __init__(self, locations: list[str] | None = None) -> None:
+    def __init__(self, locations: list[str] | None = None, roles: list[str] | None = None) -> None:
         super().__init__()
         self._locations = locations or settings.target_locations
+        self._roles = roles or settings.target_roles
 
     async def scrape(self) -> AsyncGenerator[dict, None]:
         page = await self._new_page()
-        for role in settings.target_roles:
+        for role in self._roles:
             for location in self._locations:
                 url = self._SEARCH_URL.format(
                     query=role.replace(" ", "%20"),

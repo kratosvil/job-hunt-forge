@@ -60,9 +60,15 @@ pipeline-fast:
 analyze:
 	$(PYTHON) main.py analyze
 
-# Scan LinkedIn Easy Apply jobs (48h) por región — 15 USA / 10 Europa / 5 LATAM
+# Scan LinkedIn Easy Apply jobs (48h) por región — 15 USA / 10 Europa / 5 LATAM (roles AI/MLOps)
 easy-apply:
 	DISPLAY=:0 $(PYTHON) main.py easy-apply --usa 15 --europe 10 --latam 5
+
+# Scan Easy Apply enfocado en DevOps/Cloud/SRE
+easy-apply-devops:
+	DISPLAY=:0 $(PYTHON) main.py easy-apply --usa 15 --europe 10 --latam 5 \
+		--roles "Senior DevOps Engineer,DevOps Engineer,Cloud Engineer,Site Reliability Engineer,Infrastructure Engineer,Cloud Infrastructure Engineer" \
+		--output data/easy_apply_devops.txt
 
 # Top 10 best-fit jobs sin Easy Apply — para outreach manual
 top-jobs:
