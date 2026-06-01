@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import AsyncGenerator
 
 from loguru import logger
@@ -8,16 +9,16 @@ from src.scrapers.base_scraper import BaseScraper
 
 class LinkedInScraper(BaseScraper):
     """
-    Scrapes LinkedIn job listings using an authenticated session.
+    Scrapes LinkedIn job listings using the dedicated scraper account profile.
 
-    Requires a valid session_state.json captured from your personal browser.
-    See `make capture-session` in the Makefile.
+    Uses data/scraper_profile/ — a separate Chrome profile from the main account
+    (data/browser_profile/) used by outreach. This isolates scraping activity from
+    the account that sends connection requests.
 
-    Anti-ban measures applied:
-    - Randomized delays between page loads
-    - Limits page traversal to avoid burst patterns
-    - Uses injected cookies (not bot-originated login)
+    Run `make capture-scraper-session` once to log in the scraper account.
     """
+
+    _PROFILE_PATH: Path = settings.scraper_profile_path
 
     _SEARCH_URL: str = (
         "https://www.linkedin.com/jobs/search/"

@@ -13,10 +13,15 @@ install:
 setup-db:
 	$(PYTHON) -c "from src.database.db_manager import init_db; init_db()"
 
-# Captures your LinkedIn session from your personal browser.
-# Run once, then session_state.json is reused for all scraping.
+# Captures your LinkedIn session from your personal browser (main account — outreach).
+# Run once, then session is reused by: make connect
 capture-session:
-	$(PYTHON) scripts/capture_session.py
+	DISPLAY=:0 $(PYTHON) scripts/capture_session.py
+
+# Captures the session for the dedicated scraper account (secondary account — job search only).
+# Run once, then session is reused by: make scrape, make easy-apply
+capture-scraper-session:
+	DISPLAY=:0 $(PYTHON) scripts/capture_scraper_session.py
 
 # Full pipeline — scrape → find managers → outreach → report
 pipeline:

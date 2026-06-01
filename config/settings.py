@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     cv_json_path: Path = BASE_DIR / "data" / "master_cv.json"
     playwright_state_path: Path = BASE_DIR / "data" / "session_state.json"
     browser_profile_path: Path = BASE_DIR / "data" / "browser_profile"
+    scraper_profile_path: Path = BASE_DIR / "data" / "scraper_profile"
 
     # ── Scraping safety limits ────────────────────────────────
     max_daily_connections: int = 20

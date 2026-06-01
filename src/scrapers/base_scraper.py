@@ -3,6 +3,7 @@ import random
 import shutil
 import sqlite3
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import AsyncGenerator
 
 from loguru import logger
@@ -16,14 +17,16 @@ class BaseScraper(ABC):
     Abstract base for all Playwright-based scrapers.
 
     Uses launch_persistent_context so the browser profile (cookies, localStorage,
-    fingerprint) persists across runs in data/browser_profile/. LinkedIn sees the
-    same browser it was first authenticated with — no cookie import/export.
+    fingerprint) persists across runs. LinkedIn sees the same browser it was first
+    authenticated with — no cookie import/export.
 
-    Subclasses can override _HEADLESS = False for pages that require authenticated
-    profile navigation (OutreachBot).
+    Subclasses can override:
+      _HEADLESS = False      for pages that need a visible window (OutreachBot)
+      _PROFILE_PATH = Path   to use a different browser profile (scraper account)
     """
 
     _HEADLESS: bool = True
+    _PROFILE_PATH: Path | None = None  # None → uses settings.browser_profile_path (main account)
 
     def __init__(self) -> None:
         self._context: BrowserContext | None = None
@@ -31,7 +34,8 @@ class BaseScraper(ABC):
     async def __aenter__(self) -> "BaseScraper":
         self._playwright = await async_playwright().start()
 
-        profile_dir = settings.browser_profile_path
+        profile_dir = self._PROFILE_PATH or settings.browser_profile_path
+        self._profile_dir = profile_dir  # stored for use in _restore_cookies_if_logged_out
         profile_dir.mkdir(parents=True, exist_ok=True)
 
         # Backup cookies before each run so a LinkedIn-forced logout doesn't
@@ -76,7 +80,7 @@ class BaseScraper(ABC):
         self._restore_cookies_if_logged_out()
 
     def _restore_cookies_if_logged_out(self) -> None:
-        cookies_path = settings.browser_profile_path / "Default" / "Cookies"
+        cookies_path = self._profile_dir / "Default" / "Cookies"
         backup = getattr(self, "_cookies_backup", None)
         if not backup or not backup.exists() or not cookies_path.exists():
             return
