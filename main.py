@@ -151,6 +151,11 @@ def easy_apply(
                 with get_session() as session:
                     existing = session.query(Job).filter(Job.url == url).first()
                     if existing:
+                        # Skip jobs already applied to or marked as closed
+                        skip_statuses = (JobStatus.APPLIED, JobStatus.SKIPPED,
+                                         JobStatus.REJECTED, JobStatus.OFFER)
+                        if existing.status in skip_statuses:
+                            continue
                         if existing.source == "linkedin_easy_apply" and existing.fit_score:
                             results.append({
                                 "region": region, "url": url,
