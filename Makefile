@@ -60,19 +60,34 @@ pipeline-fast:
 analyze:
 	$(PYTHON) main.py analyze
 
-# Scan LinkedIn Easy Apply jobs (48h) por región — 15 USA / 10 Europa / 5 LATAM (roles AI/MLOps)
+# Easy Apply AI/MLOps — Europa 50% / LATAM 25% / USA 25% — solo ≥90% fit → Excel en Drive
 easy-apply:
-	DISPLAY=:0 $(PYTHON) main.py easy-apply --usa 15 --europe 10 --latam 5
+	DISPLAY=:0 $(PYTHON) main.py easy-apply \
+		--europe 15 --latam 7 --usa 8 \
+		--min-display-fit 0.90 \
+		--excel "/home/kratosvil/Desarrollo/gdrive/proyectos/JOB-HUNT-FORGE/easy_apply_ai_$$(date +%Y-%m-%d).xlsx"
 
-# Scan Easy Apply enfocado en DevOps/Cloud/SRE
+# Easy Apply DevOps/Cloud/SRE — mismas cuotas → Excel en Drive
 easy-apply-devops:
-	DISPLAY=:0 $(PYTHON) main.py easy-apply --usa 15 --europe 10 --latam 5 \
+	DISPLAY=:0 $(PYTHON) main.py easy-apply \
+		--europe 15 --latam 7 --usa 8 \
+		--min-display-fit 0.90 \
 		--roles "Senior DevOps Engineer,DevOps Engineer,Cloud Engineer,Site Reliability Engineer,Infrastructure Engineer,Cloud Infrastructure Engineer" \
-		--output data/easy_apply_devops.txt
+		--output data/easy_apply_devops.txt \
+		--excel "/home/kratosvil/Desarrollo/gdrive/proyectos/JOB-HUNT-FORGE/easy_apply_devops_$$(date +%Y-%m-%d).xlsx"
 
-# Top 10 best-fit jobs sin Easy Apply — para outreach manual
+# Top 10 best-fit sin Easy Apply — con mensaje reclutador → Excel en Drive
 top-jobs:
-	$(PYTHON) main.py top-jobs --top 10 --min-fit 0.80
+	$(PYTHON) main.py top-jobs --top 10 --min-fit 0.80 \
+		--excel "/home/kratosvil/Desarrollo/gdrive/proyectos/JOB-HUNT-FORGE/top_jobs_$$(date +%Y-%m-%d).xlsx"
+
+# Rutina diaria completa
+daily-hunt:
+	@echo "=== Iniciando rutina diaria Job Hunt ==="
+	DISPLAY=:0 $(MAKE) easy-apply
+	DISPLAY=:0 $(MAKE) easy-apply-devops
+	$(MAKE) top-jobs
+	@echo "=== Excels generados en Drive ==="
 
 apply:
 	$(PYTHON) main.py apply

@@ -1,5 +1,7 @@
 import asyncio
 import datetime
+import json as _json
+from pathlib import Path
 
 import typer
 from loguru import logger
@@ -12,6 +14,112 @@ from src.database.models import Job, HiringManager
 
 app = typer.Typer(help="Job-Hunt-Forge — AI-powered job search automation.")
 console = Console()
+
+_DRIVE = Path("/home/kratosvil/Desarrollo/gdrive/proyectos/JOB-HUNT-FORGE")
+_REGION_COLORS = {"USA": "E8F4FD", "Europa": "E8FBE8", "LATAM": "FFF8E8"}
+
+
+def _recruiter_message(title: str, company: str, matched_skills_json: str) -> str:
+    skills = _json.loads(matched_skills_json or "[]")[:3]
+    s = " / ".join(skills) if skills else "AI Infrastructure & AWS DevOps"
+    return (
+        f"Hi! I came across the {title} role at {company}. "
+        f"My background in {s} aligns closely — "
+        f"I'd love to connect and learn more. — Samir"
+    )
+
+
+def _save_excel_easy_apply(rows: list[dict], path: str, header_color: str = "1F4E79") -> None:
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
+
+    def _border():
+        s = Side(style="thin", color="BFBFBF")
+        return Border(left=s, right=s, top=s, bottom=s)
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Easy Apply"
+    headers = ["#", "Región", "Fit", "Título", "Empresa", "URL", "Estado", "Notas"]
+    ws.append(headers)
+    for col in range(1, len(headers) + 1):
+        c = ws.cell(1, col)
+        c.fill = PatternFill("solid", fgColor=header_color)
+        c.font = Font(bold=True, color="FFFFFF", size=11)
+        c.alignment = Alignment(horizontal="center", vertical="center")
+        c.border = _border()
+    for i, w in enumerate([4, 8, 6, 46, 26, 65, 14, 28], 1):
+        ws.column_dimensions[get_column_letter(i)].width = w
+    ws.row_dimensions[1].height = 20
+    for i, r in enumerate(rows, 2):
+        bg = _REGION_COLORS.get(r["region"], "FFFFFF")
+        ws.append([i - 1, r["region"], f"{r['fit']:.0%}", r["title"], r["company"], r["url"], "", ""])
+        ws.row_dimensions[i].height = 28
+        for col in range(1, 9):
+            c = ws.cell(i, col)
+            c.border = _border()
+            c.fill = PatternFill("solid", fgColor=bg)
+            c.alignment = Alignment(
+                horizontal="center" if col in (1, 2, 3, 7) else "left",
+                vertical="center", wrap_text=True,
+            )
+            if col == 6:
+                c.hyperlink = r["url"]
+                c.font = Font(color="0563C1", underline="single", size=10)
+    ws.freeze_panes = "A2"
+    ws.auto_filter.ref = f"A1:H{len(rows) + 1}"
+    note = ws.cell(len(rows) + 3, 1)
+    note.value = f"Generado: {datetime.date.today()} · {len(rows)} jobs · sin repetir aplicados/cerrados"
+    note.font = Font(italic=True, color="888888", size=9)
+    wb.save(path)
+
+
+def _save_excel_top_jobs(rows: list[dict], path: str) -> None:
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
+
+    def _border():
+        s = Side(style="thin", color="BFBFBF")
+        return Border(left=s, right=s, top=s, bottom=s)
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Best Fit — Outreach"
+    headers = ["#", "Fit", "Título", "Empresa", "URL", "Mensaje Reclutador", "Estado", "Notas"]
+    ws.append(headers)
+    for col in range(1, len(headers) + 1):
+        c = ws.cell(1, col)
+        c.fill = PatternFill("solid", fgColor="1A3A52")
+        c.font = Font(bold=True, color="FFFFFF", size=11)
+        c.alignment = Alignment(horizontal="center", vertical="center")
+        c.border = _border()
+    for i, w in enumerate([4, 6, 44, 26, 60, 80, 14, 24], 1):
+        ws.column_dimensions[get_column_letter(i)].width = w
+    ws.row_dimensions[1].height = 20
+    alt = "EBF3FB"
+    for i, r in enumerate(rows, 2):
+        bg = alt if i % 2 == 0 else None
+        ws.append([i - 1, f"{r['fit']:.0%}", r["title"], r["company"], r["url"], r["mensaje"], "", ""])
+        ws.row_dimensions[i].height = 40
+        for col in range(1, 9):
+            c = ws.cell(i, col)
+            c.border = _border()
+            if bg:
+                c.fill = PatternFill("solid", fgColor=bg)
+            c.alignment = Alignment(
+                horizontal="center" if col in (1, 2, 7) else "left",
+                vertical="center", wrap_text=True,
+            )
+            if col == 5:
+                c.hyperlink = r["url"]
+                c.font = Font(color="0563C1", underline="single", size=10)
+    ws.freeze_panes = "A2"
+    note = ws.cell(len(rows) + 3, 1)
+    note.value = "Estrategia: abre URL → busca hiring manager → copia el Mensaje Reclutador → Connect con nota (Premium)"
+    note.font = Font(italic=True, color="888888", size=9)
+    wb.save(path)
 
 
 @app.callback(invoke_without_command=True)
@@ -113,13 +221,15 @@ def apply() -> None:
 
 @app.command(name="easy-apply")
 def easy_apply(
-    usa: int = typer.Option(15, "--usa", help="Max Easy Apply jobs from USA."),
-    europe: int = typer.Option(10, "--europe", help="Max Easy Apply jobs from Europe."),
-    latam: int = typer.Option(5, "--latam", help="Max Easy Apply jobs from Colombia/LATAM."),
+    usa: int = typer.Option(8, "--usa", help="Max Easy Apply jobs from USA (25%)."),
+    europe: int = typer.Option(15, "--europe", help="Max Easy Apply jobs from Europe (50%)."),
+    latam: int = typer.Option(7, "--latam", help="Max Easy Apply jobs from LATAM (25%)."),
+    min_display_fit: float = typer.Option(0.90, "--min-display-fit", help="Min fit to show in output (DB stores all ≥0.65)."),
     output: str = typer.Option("data/easy_apply.txt", "--output", help="Output TXT file path."),
+    excel: str = typer.Option("", "--excel", help="Path to save Excel file (empty = no Excel)."),
     roles: str = typer.Option("", "--roles", help="Comma-separated roles to search (overrides settings)."),
 ) -> None:
-    """Scan LinkedIn Easy Apply jobs (48h) by region — USA / Europe / LATAM."""
+    """Scan LinkedIn Easy Apply jobs (48h) by region — Europa 50% / USA 25% / LATAM 25%."""
     from src.scrapers.easy_apply_scraper import EasyApplyScraper
     from src.intelligence.jd_analyzer import analyze
     from src.database.models import Job, JobStatus
@@ -211,8 +321,12 @@ def easy_apply(
             total_scanned += len(region_results)
             logger.info(f"--- {region_name}: {len(region_results)}/{quota} found ---")
 
+        # Filter for display — only ≥ min_display_fit
+        display = [r for r in all_results if r["fit"] >= min_display_fit]
+        display.sort(key=lambda x: ({"USA": 2, "Europa": 0, "LATAM": 1}.get(x["region"], 9), -x["fit"]))
+
         # Terminal table
-        table = Table(title=f"Easy Apply — {len(all_results)} jobs · 48h · {datetime.date.today()}")
+        table = Table(title=f"Easy Apply ≥{min_display_fit:.0%} — {len(display)} jobs · 48h · {datetime.date.today()}")
         table.add_column("#",      style="dim",     width=3)
         table.add_column("Región", style="yellow",  width=7)
         table.add_column("Fit",    style="green",   width=6)
@@ -220,21 +334,26 @@ def easy_apply(
         table.add_column("Empresa",style="magenta", min_width=18)
         table.add_column("URL")
 
-        for i, r in enumerate(all_results, 1):
+        for i, r in enumerate(display, 1):
             table.add_row(str(i), r["region"], f"{r['fit']:.0%}",
                           r["title"][:48], r["company"][:25], r["url"])
         console.print(table)
 
         # TXT output
         with open(output, "w") as f:
-            f.write(f"Easy Apply — {len(all_results)} jobs · 48h · {datetime.date.today()}\n")
+            f.write(f"Easy Apply ≥{min_display_fit:.0%} — {len(display)} jobs · 48h · {datetime.date.today()}\n")
             f.write("=" * 70 + "\n\n")
-            for i, r in enumerate(all_results, 1):
+            for i, r in enumerate(display, 1):
                 f.write(f"{i}. [{r['region']}][{r['fit']:.0%}] {r['title']} @ {r['company']}\n")
                 f.write(f"   {r['url']}\n\n")
-        console.print(f"[green]Saved {len(all_results)} links → {output}[/green]")
+        console.print(f"[green]Saved {len(display)} links (≥{min_display_fit:.0%}) → {output}[/green]")
 
-        return all_results
+        # Excel output
+        if excel:
+            _save_excel_easy_apply(display, excel)
+            console.print(f"[green]Excel → {excel}[/green]")
+
+        return display
 
     results = asyncio.run(_run())
     return results
@@ -245,8 +364,9 @@ def top_jobs(
     top: int = typer.Option(10, "--top", help="Number of best-fit jobs to show."),
     min_fit: float = typer.Option(0.80, "--min-fit", help="Minimum fit score threshold."),
     output: str = typer.Option("data/top_jobs.txt", "--output", help="Output TXT file path."),
+    excel: str = typer.Option("", "--excel", help="Path to save Excel file with recruiter messages."),
 ) -> None:
-    """Show top N best-fit non-Easy-Apply jobs from DB for manual outreach."""
+    """Top N best-fit non-Easy-Apply jobs from DB — includes recruiter message for outreach."""
     from src.database.models import Job, JobStatus
 
     with get_session() as session:
@@ -263,7 +383,6 @@ def top_jobs(
         )
 
         if not jobs and min_fit > 0.65:
-            # Fallback to lower threshold
             jobs = (
                 session.query(Job)
                 .filter(
@@ -277,20 +396,23 @@ def top_jobs(
             )
 
         results = [
-            {"title": j.title, "company": j.company, "fit": j.fit_score,
-             "location": j.location or "", "url": j.url}
+            {
+                "title": j.title, "company": j.company, "fit": j.fit_score,
+                "location": j.location or "", "url": j.url,
+                "mensaje": _recruiter_message(j.title, j.company, j.matched_skills or "[]"),
+            }
             for j in jobs
         ]
 
-    table = Table(title=f"Best Fit Jobs (no Easy Apply) — Top {len(results)} · fit ≥ {min_fit:.0%}")
-    table.add_column("#",        style="dim",     width=3)
-    table.add_column("Fit",      style="green",   width=6)
-    table.add_column("Título",   style="cyan",    min_width=38)
-    table.add_column("Empresa",  style="magenta", min_width=20)
+    table = Table(title=f"Best Fit (no Easy Apply) — Top {len(results)} · fit ≥ {min_fit:.0%}")
+    table.add_column("#",       style="dim",     width=3)
+    table.add_column("Fit",     style="green",   width=6)
+    table.add_column("Título",  style="cyan",    min_width=35)
+    table.add_column("Empresa", style="magenta", min_width=20)
     table.add_column("URL")
 
     for i, r in enumerate(results, 1):
-        table.add_row(str(i), f"{r['fit']:.0%}", r["title"][:50],
+        table.add_row(str(i), f"{r['fit']:.0%}", r["title"][:45],
                       r["company"][:25], r["url"])
     console.print(table)
 
@@ -299,9 +421,14 @@ def top_jobs(
         f.write("=" * 70 + "\n\n")
         for i, r in enumerate(results, 1):
             f.write(f"{i}. [{r['fit']:.0%}] {r['title']} @ {r['company']}\n")
-            f.write(f"   {r['url']}\n\n")
+            f.write(f"   URL:     {r['url']}\n")
+            f.write(f"   Mensaje: {r['mensaje']}\n\n")
 
     console.print(f"[green]Saved {len(results)} links → {output}[/green]")
+
+    if excel:
+        _save_excel_top_jobs(results, excel)
+        console.print(f"[green]Excel → {excel}[/green]")
 
 
 @app.command()
