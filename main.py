@@ -431,6 +431,121 @@ def top_jobs(
         console.print(f"[green]Excel → {excel}[/green]")
 
 
+@app.command(name="find-recruiters")
+def find_recruiters(
+    max_per_query: int = typer.Option(8, "--max-per-query", help="Max recruiters to extract per search query."),
+    output: str = typer.Option("data/recruiters.txt", "--output", help="Output TXT file path."),
+    excel: str = typer.Option("", "--excel", help="Path to save Excel file in Drive."),
+) -> None:
+    """Search LinkedIn People for tech recruiters (DevOps/MLOps/Cloud) and generate outreach messages."""
+    from src.scrapers.recruiter_finder_scraper import RecruiterFinderScraper
+
+    def _build_message(name: str, company: str) -> str:
+        first = name.split()[0] if name else "Hola"
+        comp = f"en {company}" if company and len(company) < 40 else "en tu empresa"
+        return (
+            f"Hola {first}, soy Senior DevOps / AI Infrastructure Engineer con experiencia "
+            f"en AWS, Bedrock y MLOps. Si {comp} tienen roles remotos en este perfil, "
+            f"me encantaría estar en tu red. — Samir"
+        )
+
+    async def _run() -> list[dict]:
+        seen_urls = set()
+        results = []
+
+        async with RecruiterFinderScraper(max_per_query=max_per_query) as scraper:
+            async for person in scraper.scrape():
+                url = person.get("linkedin_url", "")
+                if not url or url in seen_urls:
+                    continue
+                seen_urls.add(url)
+                person["mensaje"] = _build_message(person["name"], person["company"])
+                results.append(person)
+                logger.info(
+                    f"  + {person['name']} | {person['title'][:40]} @ {person['company'][:25]}"
+                )
+
+        return results
+
+    results = asyncio.run(_run())
+
+    # Terminal table
+    table = Table(title=f"Recruiters encontrados — {len(results)} · {datetime.date.today()}")
+    table.add_column("#",        style="dim",     width=3)
+    table.add_column("Nombre",   style="cyan",    min_width=22)
+    table.add_column("Empresa",  style="magenta", min_width=20)
+    table.add_column("Rol",      style="yellow",  min_width=28)
+    table.add_column("URL")
+    for i, r in enumerate(results, 1):
+        table.add_row(str(i), r["name"][:25], r["company"][:22],
+                      r["title"][:30], r["linkedin_url"])
+    console.print(table)
+
+    # TXT
+    with open(output, "w") as f:
+        f.write(f"Recruiters Tech (DevOps/MLOps/Cloud) — {len(results)} · {datetime.date.today()}\n")
+        f.write("=" * 70 + "\n\n")
+        for i, r in enumerate(results, 1):
+            f.write(f"{i}. {r['name']} | {r['title']} @ {r['company']}\n")
+            f.write(f"   URL:     {r['linkedin_url']}\n")
+            f.write(f"   Mensaje: {r['mensaje']}\n\n")
+    console.print(f"[green]Saved {len(results)} recruiters → {output}[/green]")
+
+    # Excel
+    if excel and results:
+        import openpyxl
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+        from openpyxl.utils import get_column_letter
+
+        def _border():
+            s = Side(style="thin", color="BFBFBF")
+            return Border(left=s, right=s, top=s, bottom=s)
+
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Recruiters"
+        headers = ["#", "Nombre", "Empresa", "Rol en LinkedIn", "URL Perfil",
+                   "Mensaje (copiar como nota)", "Enviado", "Respuesta", "Notas"]
+        ws.append(headers)
+        for col in range(1, len(headers) + 1):
+            c = ws.cell(1, col)
+            c.fill = PatternFill("solid", fgColor="2E4057")
+            c.font = Font(bold=True, color="FFFFFF", size=11)
+            c.alignment = Alignment(horizontal="center", vertical="center")
+            c.border = _border()
+        for i, w in enumerate([4, 24, 24, 34, 55, 85, 10, 12, 24], 1):
+            ws.column_dimensions[get_column_letter(i)].width = w
+        ws.row_dimensions[1].height = 20
+        for i, r in enumerate(results, 2):
+            ws.append([
+                i - 1, r["name"], r["company"], r["title"],
+                r["linkedin_url"], r["mensaje"], "☐", "", "",
+            ])
+            ws.row_dimensions[i].height = 45
+            for col in range(1, 10):
+                c = ws.cell(i, col)
+                c.border = _border()
+                bg = "F0F4F8" if i % 2 == 0 else None
+                if bg:
+                    c.fill = PatternFill("solid", fgColor=bg)
+                c.alignment = Alignment(
+                    horizontal="center" if col in (1, 7) else "left",
+                    vertical="center", wrap_text=True,
+                )
+                if col == 5:
+                    c.hyperlink = r["linkedin_url"]
+                    c.font = Font(color="0563C1", underline="single", size=10)
+        ws.freeze_panes = "A2"
+        note = ws.cell(len(results) + 3, 1)
+        note.value = (
+            "Instrucciones: abre cada URL → Connect → pega el Mensaje como nota (Premium). "
+            f"Generado: {datetime.date.today()} · {len(results)} reclutadores únicos."
+        )
+        note.font = Font(italic=True, color="888888", size=9)
+        wb.save(excel)
+        console.print(f"[green]Excel → {excel}[/green]")
+
+
 @app.command()
 def pipeline(
     skip_scrape: bool = typer.Option(False, "--skip-scrape", help="Skip scraping stage."),

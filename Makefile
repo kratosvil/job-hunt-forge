@@ -81,6 +81,11 @@ top-jobs:
 	$(PYTHON) main.py top-jobs --top 10 --min-fit 0.80 \
 		--excel "/home/kratosvil/Desarrollo/gdrive/proyectos/JOB-HUNT-FORGE/top_jobs_$$(date +%Y-%m-%d).xlsx"
 
+# Buscar reclutadores tech (DevOps/MLOps/Cloud) → Excel en Drive con mensajes listos
+find-recruiters:
+	DISPLAY=:0 $(PYTHON) main.py find-recruiters --max-per-query 8 \
+		--excel "/home/kratosvil/Desarrollo/gdrive/proyectos/JOB-HUNT-FORGE/recruiters_$$(date +%Y-%m-%d).xlsx"
+
 # Rutina diaria completa
 daily-hunt:
 	@echo "=== Iniciando rutina diaria Job Hunt ==="
