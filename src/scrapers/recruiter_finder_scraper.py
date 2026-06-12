@@ -52,118 +52,95 @@ class RecruiterFinderScraper(BaseScraper):
                 await page.goto(url, wait_until="domcontentloaded", timeout=60000)
                 await self._human_delay()
 
-                # Wait for people results to load
+                # LinkedIn uses obfuscated CSS classes — wait for profile links instead
                 try:
-                    await page.wait_for_selector(
-                        "li.reusable-search__result-container, "
-                        "div.entity-result, "
-                        "li[data-chameleon-result-urn]",
-                        timeout=10000,
-                    )
+                    await page.wait_for_selector("a[href*='/in/']", timeout=10000)
                 except Exception:
-                    logger.warning(f"No results loaded for query: '{query}'")
+                    logger.warning(f"No profile links loaded for query: '{query}'")
                     continue
 
                 await self._human_delay()
 
-                # Extract all visible person cards
-                cards = await page.query_selector_all(
-                    "li.reusable-search__result-container, "
-                    "div.entity-result__item, "
-                    "li[data-chameleon-result-urn]"
-                )
-                logger.info(f"  Found {len(cards)} cards for '{query}'")
+                # Extract people via JavaScript — avoids obfuscated class issues
+                people = await page.evaluate("""() => {
+                    const SKIP = new Set(['Status is offline','Status is online',
+                                          'Connect','Follow','Message','View profile',
+                                          'LinkedIn Member','notifications','Home',
+                                          'My Network','Jobs','Messaging']);
+
+                    // Step 1: collect unique URLs with best name from link text
+                    const byUrl = {};
+                    document.querySelectorAll('a[href*="/in/"]').forEach(link => {
+                        try {
+                            const url = link.href.split('?')[0];
+                            if (!url.includes('/in/')) return;
+                            const name = (link.innerText || '').trim();
+                            if (!byUrl[url] || byUrl[url].name.length < name.length)
+                                byUrl[url] = { url, name };
+                        } catch(e) {}
+                    });
+
+                    const results = [];
+                    Object.values(byUrl).forEach(({ url, name }) => {
+                        if (!name || name.length < 2 || SKIP.has(name)) return;
+
+                        // Step 2: walk up to nearest LI
+                        const slug = url.replace(/.*\\/in\\//, '');
+                        const anchor = document.querySelector('a[href*="/in/' + slug + '"]');
+                        if (!anchor) return;
+                        let li = anchor;
+                        for (let i = 0; i < 14; i++) {
+                            if (!li.parentElement) break;
+                            li = li.parentElement;
+                            if (li.tagName === 'LI') break;
+                        }
+
+                        // Step 3: collect div texts (title/company), guarded against null
+                        let title = '', company = '';
+                        if (li) {
+                            const texts = [...li.querySelectorAll('div')]
+                                .map(d => {
+                                    try { return (d.innerText || '').trim(); }
+                                    catch(e) { return ''; }
+                                })
+                                .filter(t => t.length > 3 && t.length < 100
+                                    && !t.startsWith('•')
+                                    && t !== name
+                                    && !SKIP.has(t)
+                                    && !t.includes('\\n')
+                                    && !/^\\d+$/.test(t));
+                            title   = texts[0] || '';
+                            company = texts[1] || '';
+                        }
+
+                        results.push({ name, title, company, linkedin_url: url });
+                    });
+
+                    return results;
+                }""")
+
+                logger.info(f"  Found {len(people)} profile links for '{query}'")
 
                 found = 0
-                for card in cards:
+                for person in people:
                     if found >= self._max_per_query:
                         break
-                    try:
-                        person = await self._extract_person(card)
-                        if person and self._is_recruiter(person.get("title", "")):
-                            person["query"] = query
-                            yield person
-                            found += 1
-                            await asyncio.sleep(random.uniform(1.5, 3.0))
-                    except Exception as exc:
-                        logger.debug(f"Card extraction failed: {exc}")
-                        continue
+                    name  = person.get("name", "")
+                    title = person.get("title", "")
+                    if self._is_valid_name(name) and self._is_recruiter(title):
+                        person["query"] = query
+                        yield person
+                        found += 1
 
-                logger.info(f"  → {found} recruiters found for '{query}'")
+                logger.info(f"  → {found} recruiters for '{query}'")
 
             except Exception as exc:
                 logger.error(f"Search failed for '{query}': {exc}")
                 continue
 
-            # Delay between queries — more conservative
             await asyncio.sleep(random.uniform(8.0, 14.0))
 
         await page.close()
-
-    async def _extract_person(self, card) -> dict | None:
-        # Name — try multiple selectors across LinkedIn UI versions
-        name = ""
-        for sel in [
-            "span.entity-result__title-text a span[aria-hidden='true']",
-            "span[data-anonymize='person-name']",
-            "a.app-aware-link span[aria-hidden='true']",
-            ".entity-result__title-text",
-        ]:
-            el = await card.query_selector(sel)
-            if el:
-                name = (await el.inner_text()).strip()
-                if name and name.lower() not in ("linkedin member",):
-                    break
-
-        if not name:
-            return None
-
-        # Title
-        title = ""
-        for sel in [
-            ".entity-result__primary-subtitle",
-            "div[data-anonymize='title']",
-            ".entity-result__summary",
-        ]:
-            el = await card.query_selector(sel)
-            if el:
-                title = (await el.inner_text()).strip()
-                break
-
-        # Company
-        company = ""
-        for sel in [
-            ".entity-result__secondary-subtitle",
-            "div[data-anonymize='company-name']",
-        ]:
-            el = await card.query_selector(sel)
-            if el:
-                company = (await el.inner_text()).strip()
-                break
-
-        # Profile URL
-        linkedin_url = ""
-        for sel in [
-            "a.app-aware-link[href*='/in/']",
-            "a[href*='linkedin.com/in/']",
-            ".entity-result__title-text a",
-        ]:
-            el = await card.query_selector(sel)
-            if el:
-                href = await el.get_attribute("href")
-                if href and "/in/" in href:
-                    linkedin_url = href.split("?")[0]
-                    break
-
-        if not linkedin_url:
-            return None
-
-        return {
-            "name": name,
-            "title": title,
-            "company": company,
-            "linkedin_url": linkedin_url,
-        }
 
     @staticmethod
     def _is_recruiter(title: str) -> bool:
@@ -174,8 +151,16 @@ class RecruiterFinderScraper(BaseScraper):
             "talent sourcer", "sourcer", "hr manager", "people partner",
             "hiring manager",
         ]
-        # Exclude non-recruiters that might slip through
         negative = ["software engineer", "developer", "architect", "data scientist"]
         if any(n in t for n in negative):
             return False
         return any(p in t for p in positive)
+
+    @staticmethod
+    def _is_valid_name(name: str) -> bool:
+        if not name or len(name) > 60:
+            return False
+        # Filter out service descriptions and junk
+        junk_signals = ["provides services", "application development",
+                        "web development", "ACoA", "urn%3A"]
+        return not any(j.lower() in name.lower() for j in junk_signals)
