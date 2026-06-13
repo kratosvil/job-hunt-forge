@@ -15,11 +15,18 @@ _SEARCH_QUERIES = [
     "technical recruiter platform engineer infrastructure",
     "recruiter site reliability engineer aws",
     "talent acquisition ai machine learning remote",
+    "recruiter cloud infrastructure engineer remote",
+    "technical recruiter python aws backend",
+    "talent acquisition devops latam remote",
+    "recruiter ai engineer generative remote",
+    "headhunter devops cloud engineer",
+    "staffing cloud aws devops engineer",
+    "recruiter mlops data engineer remote",
 ]
 
 _SEARCH_URL = (
     "https://www.linkedin.com/search/results/people/"
-    "?keywords={query}&origin=GLOBAL_SEARCH_HEADER"
+    "?keywords={query}&origin=GLOBAL_SEARCH_HEADER&start={start}"
 )
 
 
@@ -36,17 +43,24 @@ class RecruiterFinderScraper(BaseScraper):
     _PROFILE_PATH: Path = settings.scraper_profile_path
     _HEADLESS: bool = True
 
-    def __init__(self, queries: list[str] | None = None, max_per_query: int = 8) -> None:
+    def __init__(self, queries: list[str] | None = None, max_per_query: int = 8,
+                 pages: int = 2) -> None:
         super().__init__()
         self._queries = queries or _SEARCH_QUERIES
         self._max_per_query = max_per_query
+        self._pages = pages  # number of result pages to scan per query
 
     async def scrape(self) -> AsyncGenerator[dict, None]:
         page = await self._new_page()
 
         for query in self._queries:
-            url = _SEARCH_URL.format(query=query.replace(" ", "%20"))
-            logger.info(f"Searching recruiters: '{query}'")
+            found_query = 0
+            for page_num in range(self._pages):
+                if found_query >= self._max_per_query:
+                    break
+                start = page_num * 10
+                url = _SEARCH_URL.format(query=query.replace(" ", "%20"), start=start)
+                logger.info(f"Searching: '{query}' page {page_num + 1}")
 
             try:
                 await page.goto(url, wait_until="domcontentloaded", timeout=60000)
@@ -121,24 +135,27 @@ class RecruiterFinderScraper(BaseScraper):
 
                 logger.info(f"  Found {len(people)} profile links for '{query}'")
 
-                found = 0
+                page_found = 0
                 for person in people:
-                    if found >= self._max_per_query:
+                    if found_query >= self._max_per_query:
                         break
                     name  = person.get("name", "")
                     title = person.get("title", "")
                     if self._is_valid_name(name) and self._is_recruiter(title):
                         person["query"] = query
                         yield person
-                        found += 1
+                        found_query += 1
+                        page_found += 1
 
-                logger.info(f"  → {found} recruiters for '{query}'")
+                logger.info(f"  → {page_found} recruiters page {page_num + 1} for '{query}'")
 
             except Exception as exc:
-                logger.error(f"Search failed for '{query}': {exc}")
+                logger.error(f"Search failed for '{query}' p{page_num+1}: {exc}")
                 continue
 
-            await asyncio.sleep(random.uniform(8.0, 14.0))
+            await asyncio.sleep(random.uniform(6.0, 10.0))
+
+        await asyncio.sleep(random.uniform(8.0, 12.0))  # delay between queries
 
         await page.close()
 
