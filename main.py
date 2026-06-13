@@ -449,8 +449,29 @@ def find_recruiters(
             f"me encantaría estar en tu red. — Samir"
         )
 
+    # Load previously seen recruiter URLs from all Drive Excel files
+    import glob as _glob
+    import openpyxl as _opx
+    prev_urls: set[str] = set()
+    for _path in _glob.glob(f"{_DRIVE}/recruiters_*.xlsx"):
+        try:
+            _wb = _opx.load_workbook(_path, read_only=True, data_only=True)
+            for _ws in _wb.worksheets:
+                _headers = [c.value for c in next(_ws.iter_rows(min_row=1, max_row=1))]
+                if "URL Perfil" not in _headers:
+                    continue
+                _ucol = _headers.index("URL Perfil")
+                for _row in _ws.iter_rows(min_row=2, values_only=True):
+                    _u = str(_row[_ucol]).strip() if _ucol < len(_row) and _row[_ucol] else ""
+                    if _u.startswith("http"):
+                        prev_urls.add(_u)
+            _wb.close()
+        except Exception:
+            pass
+    logger.info(f"Reclutadores ya vistos en histórico: {len(prev_urls)}")
+
     async def _run() -> list[dict]:
-        seen_urls = set()
+        seen_urls = set(prev_urls)  # start with historical exclusions
         results = []
 
         async with RecruiterFinderScraper(max_per_query=max_per_query) as scraper:
