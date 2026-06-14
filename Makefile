@@ -60,25 +60,25 @@ pipeline-fast:
 analyze:
 	$(PYTHON) main.py analyze
 
-# Easy Apply AI/MLOps — Europa 50% / LATAM 25% / USA 25% — solo ≥90% fit → Excel en Drive
+# Easy Apply AI/MLOps — España 50% / USA 25% / Colombia 25% / Mundo buffer → Excel en Drive
 easy-apply:
 	DISPLAY=:0 $(PYTHON) main.py easy-apply \
-		--europe 15 --latam 7 --usa 8 \
+		--spain 15 --usa 8 --colombia 7 --world 5 \
 		--min-display-fit 0.90 \
 		--excel "/home/kratosvil/Desarrollo/gdrive/proyectos/JOB-HUNT-FORGE/easy_apply_ai_$$(date +%Y-%m-%d).xlsx"
 
-# Easy Apply DevOps/Cloud/SRE — mismas cuotas → Excel en Drive
+# Easy Apply DevOps/Cloud/SRE — mismas cuotas regionales → Excel en Drive
 easy-apply-devops:
 	DISPLAY=:0 $(PYTHON) main.py easy-apply \
-		--europe 15 --latam 7 --usa 8 \
+		--spain 15 --usa 8 --colombia 7 --world 5 \
 		--min-display-fit 0.90 \
 		--roles "Senior DevOps Engineer,DevOps Engineer,Cloud Engineer,Site Reliability Engineer,Infrastructure Engineer,Cloud Infrastructure Engineer" \
 		--output data/easy_apply_devops.txt \
 		--excel "/home/kratosvil/Desarrollo/gdrive/proyectos/JOB-HUNT-FORGE/easy_apply_devops_$$(date +%Y-%m-%d).xlsx"
 
-# Top 10 best-fit sin Easy Apply — con mensaje reclutador → Excel en Drive
+# Top 15 best-fit sin Easy Apply — España primero, con mensaje reclutador → Excel en Drive
 top-jobs:
-	$(PYTHON) main.py top-jobs --top 10 --min-fit 0.80 \
+	$(PYTHON) main.py top-jobs --top 15 --min-fit 0.80 --country Spain \
 		--excel "/home/kratosvil/Desarrollo/gdrive/proyectos/JOB-HUNT-FORGE/top_jobs_$$(date +%Y-%m-%d).xlsx"
 
 # Buscar reclutadores tech (DevOps/MLOps/Cloud) → Excel en Drive con mensajes listos

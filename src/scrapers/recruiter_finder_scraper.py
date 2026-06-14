@@ -10,18 +10,18 @@ from src.scrapers.base_scraper import BaseScraper
 
 # Search queries targeting recruiters who handle DevOps/MLOps/Cloud roles
 _SEARCH_QUERIES = [
-    "recruiter devops aws remote",
-    "talent acquisition mlops cloud engineer",
-    "technical recruiter platform engineer infrastructure",
-    "recruiter site reliability engineer aws",
-    "talent acquisition ai machine learning remote",
-    "recruiter cloud infrastructure engineer remote",
-    "technical recruiter python aws backend",
-    "talent acquisition devops latam remote",
-    "recruiter ai engineer generative remote",
-    "headhunter devops cloud engineer",
-    "staffing cloud aws devops engineer",
-    "recruiter mlops data engineer remote",
+    "reclutador IT devops cloud España",
+    "talent acquisition devops aws Spain",
+    "recruiter cloud engineer Madrid Barcelona",
+    "technical recruiter Spain remote devops",
+    "reclutador técnico cloud aws España remoto",
+    "talent acquisition mlops Spain",
+    "recruiter platform engineer Spain",
+    "headhunter IT devops España",
+    "talent acquisition ai engineer Spain remote",
+    "reclutador infrastructure engineer España",
+    "recruiter sre aws Spain",
+    "talent acquisition cloud devops Madrid",
 ]
 
 _SEARCH_URL = (

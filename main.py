@@ -221,15 +221,16 @@ def apply() -> None:
 
 @app.command(name="easy-apply")
 def easy_apply(
+    spain: int = typer.Option(15, "--spain", help="Max Easy Apply jobs from Spain (50%)."),
     usa: int = typer.Option(8, "--usa", help="Max Easy Apply jobs from USA (25%)."),
-    europe: int = typer.Option(15, "--europe", help="Max Easy Apply jobs from Europe (50%)."),
-    latam: int = typer.Option(7, "--latam", help="Max Easy Apply jobs from LATAM (25%)."),
+    colombia: int = typer.Option(7, "--colombia", help="Max Easy Apply jobs from Colombia (25%)."),
+    world: int = typer.Option(5, "--world", help="Max Easy Apply jobs from rest of world."),
     min_display_fit: float = typer.Option(0.90, "--min-display-fit", help="Min fit to show in output (DB stores all ≥0.65)."),
     output: str = typer.Option("data/easy_apply.txt", "--output", help="Output TXT file path."),
     excel: str = typer.Option("", "--excel", help="Path to save Excel file (empty = no Excel)."),
     roles: str = typer.Option("", "--roles", help="Comma-separated roles to search (overrides settings)."),
 ) -> None:
-    """Scan LinkedIn Easy Apply jobs (48h) by region — Europa 50% / USA 25% / LATAM 25%."""
+    """Scan LinkedIn Easy Apply jobs (48h) — España 50% / USA 25% / Colombia 25% / Mundo buffer."""
     from src.scrapers.easy_apply_scraper import EasyApplyScraper
     from src.intelligence.jd_analyzer import analyze
     from src.database.models import Job, JobStatus
@@ -237,9 +238,10 @@ def easy_apply(
     import json
 
     REGIONS = [
-        ("USA",    ["United States"],              usa),
-        ("Europa", ["Europe"],                     europe),
-        ("LATAM",  ["Colombia", "Latin America"],  latam),
+        ("España",   ["Spain", "España", "Madrid", "Barcelona"],   spain),
+        ("USA",      ["United States"],                             usa),
+        ("Colombia", ["Colombia", "Bogotá"],                       colombia),
+        ("Mundo",    ["Remote", "United Kingdom", "Germany"],      world),
     ]
     custom_roles = [r.strip() for r in roles.split(",") if r.strip()] if roles else None
 
@@ -365,24 +367,33 @@ def top_jobs(
     min_fit: float = typer.Option(0.80, "--min-fit", help="Minimum fit score threshold."),
     output: str = typer.Option("data/top_jobs.txt", "--output", help="Output TXT file path."),
     excel: str = typer.Option("", "--excel", help="Path to save Excel file with recruiter messages."),
+    country: str = typer.Option("Spain", "--country", help="Filter by location containing this string (empty = all countries)."),
 ) -> None:
-    """Top N best-fit non-Easy-Apply jobs from DB — includes recruiter message for outreach."""
+    """Top N best-fit non-Easy-Apply jobs — filtered by country (default: Spain) with relocation option."""
     from src.database.models import Job, JobStatus
+    from sqlalchemy import or_
+
+    # Spain keywords: matches Spain, España, Madrid, Barcelona, Remote (Spain-posted)
+    SPAIN_KEYWORDS = ["Spain", "España", "Madrid", "Barcelona", "Bilbao",
+                      "Valencia", "Sevilla", "Málaga", "Remote"]
 
     with get_session() as session:
-        jobs = (
-            session.query(Job)
-            .filter(
-                Job.source != "linkedin_easy_apply",
-                Job.fit_score >= min_fit,
-                Job.status == JobStatus.ANALYZED,
-            )
-            .order_by(Job.fit_score.desc())
-            .limit(top)
-            .all()
+        base = session.query(Job).filter(
+            Job.source != "linkedin_easy_apply",
+            Job.fit_score >= min_fit,
+            Job.status == JobStatus.ANALYZED,
         )
 
-        if not jobs and min_fit > 0.65:
+        if country:
+            keywords = SPAIN_KEYWORDS if country.lower() in ("spain", "españa") else [country]
+            base = base.filter(
+                or_(*[Job.location.ilike(f"%{kw}%") for kw in keywords])
+            )
+
+        jobs = base.order_by(Job.fit_score.desc()).limit(top).all()
+
+        # Fallback: drop location filter if not enough results
+        if len(jobs) < 3:
             jobs = (
                 session.query(Job)
                 .filter(
@@ -394,6 +405,8 @@ def top_jobs(
                 .limit(top)
                 .all()
             )
+            if country:
+                logger.warning(f"Pocos resultados para '{country}' — mostrando top global")
 
         results = [
             {
