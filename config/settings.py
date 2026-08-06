@@ -40,13 +40,19 @@ class Settings(BaseSettings):
     salary_min_usd_month: int = 7000
 
     # ── Target roles for search queries ──────────────────────
+    # Reordenado 2026-08-06: DevOps/Cloud/SRE primero (Tier A — fit directo,
+    # track record pagado real). AI Infra/MLOps queda como cola secundaria
+    # (Tier B — diferenciador, no la afirmación central) tras diagnóstico de
+    # mercado: roles "AI Infra/MLOps" puros filtran por production track
+    # record empleador-validado que el CV no sostiene todavía.
     target_roles: list[str] = [
+        "Senior DevOps Engineer",
+        "Cloud Infrastructure Engineer",
+        "Site Reliability Engineer",
+        "Platform Engineer",
+        "Senior Cloud Engineer",
         "AI Infrastructure Engineer",
         "MLOps Engineer",
-        "Platform Engineer",
-        "Senior DevOps Engineer",
-        "Agentic AI Engineer",
-        "Staff Engineer AI",
     ]
     target_locations: list[str] = ["Remote", "United States", "Europe"]
 

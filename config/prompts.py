@@ -85,7 +85,7 @@ HARD RULES:
 - Maximum 198 characters total. Count every character carefully.
 - Start with their first name, a space, em dash, a space (example: "Janet — ").
 - Mention you saw the role at the company and that you're actively looking.
-- State your core identity in one phrase (Senior MLOps / AI Infrastructure Engineer).
+- State your core identity in one phrase (Senior DevOps / Cloud Platform Engineer).
 - End with a soft, low-friction close — not "do you have 15 minutes".
 - No URLs, no phone numbers, no emojis.
 - Do NOT invent facts.
