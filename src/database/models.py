@@ -59,6 +59,7 @@ class Job(Base):
     hiring_manager_signals: Mapped[Optional[str]] = mapped_column(Text)  # JSON array
     managers_searched: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     notes: Mapped[Optional[str]] = mapped_column(Text)
+    top_jobs_shown_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
 
 
 class HiringManager(Base):

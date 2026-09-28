@@ -30,6 +30,7 @@ def _migrate_db() -> None:
     with _engine.connect() as conn:
         for stmt in [
             "ALTER TABLE hiring_managers ADD COLUMN connection_note TEXT",
+            "ALTER TABLE jobs ADD COLUMN top_jobs_shown_at DATETIME",
         ]:
             try:
                 conn.execute(text(stmt))

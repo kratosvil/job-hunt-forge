@@ -86,6 +86,23 @@ find-recruiters:
 	DISPLAY=:0 $(PYTHON) main.py find-recruiters --max-per-query 8 \
 		--excel "/home/kratosvil/Desarrollo/gdrive/proyectos/JOB-HUNT-FORGE/recruiters_$$(date +%Y-%m-%d).xlsx"
 
+# Easy Apply España Híbrido — solo España, modalidad híbrida (f_WT=3), para tramitar visa
+# min-fit 0.75 porque hay menos volumen de jobs híbridos en España que remotos globales
+easy-apply-spain-hybrid:
+	DISPLAY=:0 $(PYTHON) main.py easy-apply \
+		--spain 25 --usa 0 --colombia 0 --world 0 \
+		--work-type 3 \
+		--min-display-fit 0.75 \
+		--output data/easy_apply_spain_hybrid.txt \
+		--excel "/home/kratosvil/Desarrollo/gdrive/proyectos/JOB-HUNT-FORGE/spain_hybrid_$$(date +%Y-%m-%d).xlsx"
+
+# Rutina España completa — jobs híbridos + reclutadores en España
+daily-hunt-spain:
+	@echo "=== Rutina España: híbrido + reclutadores ==="
+	DISPLAY=:0 $(MAKE) easy-apply-spain-hybrid
+	DISPLAY=:0 $(MAKE) find-recruiters
+	@echo "=== Excels generados en Drive ==="
+
 # Rutina diaria completa
 daily-hunt:
 	@echo "=== Iniciando rutina diaria Job Hunt ==="

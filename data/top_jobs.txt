@@ -1,0 +1,63 @@
+Best Fit Jobs (manual outreach) — Top 15 · 2026-07-21
+======================================================================
+
+1. [92%] AWS Cloud Engineer @ Bright Vision Technologies
+   URL:     https://www.linkedin.com/jobs/view/4419877168/
+   Mensaje: Hi! I came across the AWS Cloud Engineer role at Bright Vision Technologies. My background in AWS (EC2, VPC, IAM, S3, Lambda, CloudFront, CloudFormation) / Infrastructure-as-Code (Terraform, CloudFormation) / Amazon EKS (Kubernetes advanced networking, security) aligns closely — I'd love to connect and learn more. — Samir
+
+2. [92%] Job Description — DevOps Engineer AWS @ Infoser Technological solutions, Hardware, Big Data Experts
+   URL:     https://www.linkedin.com/jobs/view/4419849046/
+   Mensaje: Hi! I came across the Job Description — DevOps Engineer AWS role at Infoser Technological solutions, Hardware, Big Data Experts. My background in AWS (EKS, Lambda, S3, IAM, CloudFormation, API Gateway) / Kubernetes (advanced networking, security) / CI/CD pipelines (GitHub Actions, Jenkins, CodePipeline) aligns closely — I'd love to connect and learn more. — Samir
+
+3. [92%] Platform / DevOps Engineer @ BCNC GROUP
+   URL:     https://www.linkedin.com/jobs/view/4410987041/
+   Mensaje: Hi! I came across the Platform / DevOps Engineer role at BCNC GROUP. My background in Kubernetes (advanced networking, security) / Docker / Linux administration aligns closely — I'd love to connect and learn more. — Samir
+
+4. [92%] AWS Cloud DevOps Engineer — Senior (INGLÉS ALTO) @ CAS Training
+   URL:     https://www.linkedin.com/jobs/view/4417200764/
+   Mensaje: Hi! I came across the AWS Cloud DevOps Engineer — Senior (INGLÉS ALTO) role at CAS Training. My background in AWS (EKS, SageMaker, Lambda, EventBridge, CloudFormation, IAM, S3, API Gateway) / Terraform (enterprise modular design) / CI/CD pipelines (GitHub Actions, CodePipeline) aligns closely — I'd love to connect and learn more. — Samir
+
+5. [92%] CLOUD ENGINEER (AWS AND GENAI) @ LITIT
+   URL:     https://www.linkedin.com/jobs/view/4419813924/
+   Mensaje: Hi! I came across the CLOUD ENGINEER (AWS AND GENAI) role at LITIT. My background in Python backend development / AWS Lambda / API Gateway aligns closely — I'd love to connect and learn more. — Samir
+
+6. [92%] Cloud Engineer @ SDG Group España
+   URL:     https://www.linkedin.com/jobs/view/4352280348/
+   Mensaje: Hi! I came across the Cloud Engineer role at SDG Group España. My background in AWS (EKS, SageMaker, Lambda, CloudFormation, IAM, S3, API Gateway, EventBridge) / Terraform IaC / Python aligns closely — I'd love to connect and learn more. — Samir
+
+7. [92%] Senior AI Engineer / Solution Architect @ Keyrus
+   URL:     https://www.linkedin.com/jobs/view/4419345362/
+   Mensaje: Hi! I came across the Senior AI Engineer / Solution Architect role at Keyrus. My background in AWS Bedrock / Amazon SageMaker / RAG pipelines aligns closely — I'd love to connect and learn more. — Samir
+
+8. [92%] Senior ML Engineer (LLMs, AWS) @ Provectus
+   URL:     https://www.linkedin.com/jobs/view/4420283973/
+   Mensaje: Hi! I came across the Senior ML Engineer (LLMs, AWS) role at Provectus. My background in LLMs in production / RAG architecture / Agentic systems aligns closely — I'd love to connect and learn more. — Samir
+
+9. [92%] SR. CLOUD INFRASTRUCTURE ENGINEER (AI & LLM PLATFORMS) @ Q6 Cyber
+   URL:     https://www.linkedin.com/jobs/view/4419337406/
+   Mensaje: Hi! I came across the SR. CLOUD INFRASTRUCTURE ENGINEER (AI & LLM PLATFORMS) role at Q6 Cyber. My background in AWS (EKS, SageMaker, Bedrock, Lambda, EventBridge, VPC PrivateLink, IAM, S3, CloudFormation) / Kubernetes (advanced networking, security) / Terraform (enterprise modular design) aligns closely — I'd love to connect and learn more. — Samir
+
+10. [92%] Cloud Infrastructure Engineer @ Jobgether
+   URL:     https://www.linkedin.com/jobs/view/4419017735/
+   Mensaje: Hi! I came across the Cloud Infrastructure Engineer role at Jobgether. My background in AWS (EKS, SageMaker, Lambda, EventBridge, IAM, S3, CloudFormation, VPC PrivateLink, API Gateway) / Kubernetes (advanced networking, security) / Docker aligns closely — I'd love to connect and learn more. — Samir
+
+11. [92%] Site Reliability Engineer (SRE) @ Florence Healthcare
+   URL:     https://www.linkedin.com/jobs/view/4420498895/
+   Mensaje: Hi! I came across the Site Reliability Engineer (SRE) role at Florence Healthcare. My background in AWS cloud platform expertise (SageMaker, EKS, Lambda, EventBridge, IAM, S3) / Infrastructure-as-code (Terraform, CloudFormation) / CI/CD pipelines (GitHub Actions, Jenkins, CodePipeline) aligns closely — I'd love to connect and learn more. — Samir
+
+12. [92%] Senior Platform Engineer / AI Infra / MLOps @ h&k
+   URL:     https://www.linkedin.com/jobs/view/4420281753/
+   Mensaje: Hi! I came across the Senior Platform Engineer / AI Infra / MLOps role at h&k. My background in MLOps pipelines / CI/CD automation / Kubernetes aligns closely — I'd love to connect and learn more. — Samir
+
+13. [92%] AI Engineer / AI Architect (AWS + Azure) @ Logicalis Spain
+   URL:     https://www.linkedin.com/jobs/view/4420402198/
+   Mensaje: Hi! I came across the AI Engineer / AI Architect (AWS + Azure) role at Logicalis Spain. My background in AWS (Lambda, Bedrock, Step Functions via EventBridge orchestration) / AI/GenAI and LLM expertise / Agentic AI systems and multi-agent orchestration aligns closely — I'd love to connect and learn more. — Samir
+
+14. [92%] Principal AI/ML Cloud Infrastructure & DevOps Engineer @ Intuitive.ai
+   URL:     https://www.linkedin.com/jobs/view/4419068467/
+   Mensaje: Hi! I came across the Principal AI/ML Cloud Infrastructure & DevOps Engineer role at Intuitive.ai. My background in AWS CDK / Terraform (IaC) / CI/CD Pipelines (CodeBuild, GitHub Actions) / Container Orchestration (ECS Fargate) aligns closely — I'd love to connect and learn more. — Samir
+
+15. [92%] Platform Reliability Engineer @ XpertDirect
+   URL:     https://www.linkedin.com/jobs/view/4417617681/
+   Mensaje: Hi! I came across the Platform Reliability Engineer role at XpertDirect. My background in Kubernetes / Terraform / AWS aligns closely — I'd love to connect and learn more. — Samir
+

@@ -229,6 +229,7 @@ def easy_apply(
     output: str = typer.Option("data/easy_apply.txt", "--output", help="Output TXT file path."),
     excel: str = typer.Option("", "--excel", help="Path to save Excel file (empty = no Excel)."),
     roles: str = typer.Option("", "--roles", help="Comma-separated roles to search (overrides settings)."),
+    work_type: str = typer.Option("2", "--work-type", help="LinkedIn work type: 2=Remote, 3=Hybrid, 1=On-site, 2,3=Both."),
 ) -> None:
     """Scan LinkedIn Easy Apply jobs (48h) — España 50% / USA 25% / Colombia 25% / Mundo buffer."""
     from src.scrapers.easy_apply_scraper import EasyApplyScraper
@@ -245,12 +246,36 @@ def easy_apply(
     ]
     custom_roles = [r.strip() for r in roles.split(",") if r.strip()] if roles else None
 
+    # Load URLs already in previous Drive Excel files to avoid cross-day duplicates
+    import glob as _glob
+    import openpyxl as _opx
+    prev_urls: set[str] = set()
+    for _path in (_glob.glob(f"{_DRIVE}/easy_apply_*.xlsx") +
+                  _glob.glob(f"{_DRIVE}/spain_hybrid_*.xlsx")):
+        try:
+            _wb = _opx.load_workbook(_path, read_only=True, data_only=True)
+            for _ws in _wb.worksheets:
+                _headers = [c.value for c in next(_ws.iter_rows(min_row=1, max_row=1))]
+                if "URL" not in _headers:
+                    continue
+                _ucol = _headers.index("URL")
+                for _row in _ws.iter_rows(min_row=2, values_only=True):
+                    _u = str(_row[_ucol]).strip() if _ucol < len(_row) and _row[_ucol] else ""
+                    if _u.startswith("http"):
+                        prev_urls.add(_u)
+            _wb.close()
+        except Exception:
+            pass
+    logger.info(f"URLs ya en historial Drive (easy_apply + spain_hybrid): {len(prev_urls)}")
+
+    seen_in_run: set[str] = set()  # dedup within this run across regions
+
     async def _scrape_region(locations: list[str], quota: int, region: str) -> list[dict]:
         results = []
         scanned = 0
         scan_limit = quota * 4  # scan up to 4× the quota to find enough recommended
 
-        async with EasyApplyScraper(locations=locations, roles=custom_roles) as scraper:
+        async with EasyApplyScraper(locations=locations, roles=custom_roles, work_type=work_type) as scraper:
             async for raw in scraper.scrape():
                 if scanned >= scan_limit or len(results) >= quota:
                     break
@@ -259,6 +284,10 @@ def easy_apply(
 
                 url = raw["url"]
                 scanned += 1
+
+                # Skip URLs already shown in a previous day's Excel or earlier in this run
+                if url in prev_urls or url in seen_in_run:
+                    continue
 
                 with get_session() as session:
                     existing = session.query(Job).filter(Job.url == url).first()
@@ -274,6 +303,7 @@ def easy_apply(
                                 "title": existing.title, "company": existing.company,
                                 "fit": existing.fit_score,
                             })
+                            seen_in_run.add(url)
                         continue
 
                 try:
@@ -303,6 +333,7 @@ def easy_apply(
                             "title": raw["title"].strip(), "company": raw["company"].strip(),
                             "fit": fit,
                         })
+                        seen_in_run.add(url)
                     logger.info(f"[{region}][{scanned}] {raw['title'][:40]} @ {raw['company'][:20]} fit={fit:.0%} {'✓' if recommended else '✗'}")
                 except IntegrityError:
                     logger.debug(f"Duplicate skipped: {url}")
@@ -382,6 +413,7 @@ def top_jobs(
             Job.source != "linkedin_easy_apply",
             Job.fit_score >= min_fit,
             Job.status == JobStatus.ANALYZED,
+            Job.top_jobs_shown_at.is_(None),
         )
 
         if country:
@@ -392,7 +424,7 @@ def top_jobs(
 
         jobs = base.order_by(Job.fit_score.desc()).limit(top).all()
 
-        # Fallback: drop location filter if not enough results
+        # Fallback: drop location filter if not enough unseen results
         if len(jobs) < 3:
             jobs = (
                 session.query(Job)
@@ -400,13 +432,14 @@ def top_jobs(
                     Job.source != "linkedin_easy_apply",
                     Job.fit_score >= settings.min_fit_score,
                     Job.status == JobStatus.ANALYZED,
+                    Job.top_jobs_shown_at.is_(None),
                 )
                 .order_by(Job.fit_score.desc())
                 .limit(top)
                 .all()
             )
             if country:
-                logger.warning(f"Pocos resultados para '{country}' — mostrando top global")
+                logger.warning(f"Pocos resultados nuevos para '{country}' — mostrando top global")
 
         results = [
             {
@@ -416,6 +449,10 @@ def top_jobs(
             }
             for j in jobs
         ]
+
+        now = datetime.datetime.now(datetime.timezone.utc)
+        for j in jobs:
+            j.top_jobs_shown_at = now
 
     table = Table(title=f"Best Fit (no Easy Apply) — Top {len(results)} · fit ≥ {min_fit:.0%}")
     table.add_column("#",       style="dim",     width=3)
